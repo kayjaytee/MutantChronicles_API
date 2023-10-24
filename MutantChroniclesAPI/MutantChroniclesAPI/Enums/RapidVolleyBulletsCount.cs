@@ -1,0 +1,9 @@
+﻿namespace MutantChroniclesAPI.Enums;
+
+public enum RapidVolleyBulletsCount
+{
+    Two = 2,
+    Three = 3,
+    Four = 4,
+    Five = 5
+}
