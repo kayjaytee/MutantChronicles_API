@@ -16,10 +16,10 @@ public enum ArmorType
     [Description("Jacket")]
     Jacket = 3,
 
-    [Description("Trenchcoat")]
+    [Description("Bodysuit")]
     Bodysuit = 4,
 
-    [Description("Bodysuit")]
+    [Description("Trenchcoat")]
     Trenchcoat = 5,
 
     [Description("Arms")]
@@ -32,5 +32,8 @@ public enum ArmorType
     Legs = 8,
 
     [Description("Knee")]
-    Knee = 9
+    Knee = 9,
+
+    [Description("Shoulders")]
+    Shoulders = 10
 }

@@ -1,15 +1,9 @@
-﻿
-
-using MutantChroniclesAPI.Model.CharacterModel;
-using System.Reflection;
+﻿using MutantChroniclesAPI.Model.CharacterModel;
 
 namespace MutantChroniclesAPI.Tests.Model.CharacterModel;
 
 public class TargetTests
 {
-    private Character character;
-    private Target target;
-
     [Test]
     public void InitializeBodyParts_AllBodyPartsAreInitialized()
     {

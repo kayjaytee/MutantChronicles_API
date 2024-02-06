@@ -1,30 +1,42 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using MutantChroniclesAPI.Model;
-using System.ComponentModel.DataAnnotations;
-using static MutantChroniclesAPI.Model.Enviroment;
+using MutantChroniclesAPI.Model.EnviromentModel;
+using MutantChroniclesAPI.Services;
 
 namespace MutantChroniclesAPI.Controllers;
-
 
 [Route("api/[controller]")]
 [ApiController]
 public class EnviromentController : ControllerBase
 {
-    public static Enviroment.Light enviromentLight = Enviroment.Light.None;
-    public static Enviroment.Weather enviromentWeather = Enviroment.Weather.None;
+    private readonly EnviromentService _enviromentService;
 
-    [HttpPatch("light")]
-    public async Task<IActionResult> SetLight([FromBody] Enviroment.Light light)
+    //public static Enviroment.Light enviromentLight = Enviroment.Light.None;
+    //public static Enviroment.Weather enviromentWeather = Enviroment.Weather.None;
+
+    public EnviromentController(EnviromentService enviromentService)
     {
-        enviromentLight = light;
-        return Ok(light.ToString());
+        _enviromentService = enviromentService;
     }
 
-    [HttpPatch("weather")]
+    [HttpPatch("light/set")]
+    public async Task<IActionResult> SetLight([FromBody] Enviroment.Light light)
+    {
+        _enviromentService.SetLight(light);
+        return Ok(light.ToString() + " " + (int)light);
+    }
+
+    [HttpPatch("weather/set")]
     public async Task<IActionResult> SetWeather([FromBody] Enviroment.Weather weather)
     {
-        enviromentWeather = weather;
-        return Ok(weather.ToString());
+        _enviromentService.SetWeather(weather);
+        return Ok(weather.ToString() + " " + (int)weather);
+    }
+
+    [HttpGet("light/get")]
+    public async Task<IActionResult> GetLight()
+    {
+        var light = _enviromentService.GetLightModifiers();
+        return Ok("Current Light: " + light.ToString() + " " + (int)light);
     }
 
 }

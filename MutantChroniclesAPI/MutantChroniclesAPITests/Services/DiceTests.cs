@@ -1,9 +1,4 @@
 ﻿using MutantChroniclesAPI.Services.Combat;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace MutantChroniclesAPI.Tests.Services;
 
@@ -52,9 +47,9 @@ public class DiceTests
 
 
     [Test]
-    [TestCase(1,6,2)]
-    [TestCase(1,4,0)]
-    [TestCase(1,10,0)]
+    [TestCase(1, 6, 2)]
+    [TestCase(1, 4, 0)]
+    [TestCase(1, 10, 0)]
     public void RollDamage_ShouldGenerateDamage_WithinRange(int minDamage, int maxDamage, int additionalDamage)
     {
         // Act
@@ -78,7 +73,7 @@ public class DiceTests
     [TestCase(3)]
     [TestCase(4)]
     [TestCase(6)]
-    [TestCase(8)] 
+    [TestCase(8)]
     [TestCase(10)]
     public void RollTargetAreas_ShouldGenerateTargetAreas_WithinRange(int maxAreas)
     {
@@ -106,6 +101,13 @@ public class DiceTests
             Console.WriteLine($"Expected Roll: 1D{maxAreas}");
         }
         Console.WriteLine($"Result: {targetArea}");
+
+    }
+
+    [Test]
+    public void BlockChance__double0_5_FiftyFiftyChance()
+
+    {
 
     }
 }

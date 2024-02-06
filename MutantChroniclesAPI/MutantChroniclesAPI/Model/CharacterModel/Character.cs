@@ -260,76 +260,123 @@ public class Character
 
     //----------------------------  Weapon Class  ----------------------------\\
 
-    public Weapon EquippedWeapon { get; set; }
+    public Weapon MainHandEquipment { get; set; }
+    public Weapon OffHandEquipment { get; set; }
 
-    public void EquipWeapon(Weapon weapon) => EquippedWeapon = weapon;
+    public bool DualWield { get; set; } = false;
+    //public bool FlyingViperStyle { get; set; } = false; //Special Technique, future implementation (allows to make mainhand and offhand action at the same time)
+    public bool TwoHanded { get; set; } = false;
+    public void EquipWeaponInMainHand(Weapon weapon) => MainHandEquipment = weapon;
+    public void EquipWeaponOffHand(Weapon weapon)
+    {
+        OffHandEquipment = weapon;
+        if (MainHandEquipment is null)
+        {
+            MainHandEquipment = OffHandEquipment;
+            OffHandEquipment = null!;
+        }
+    }
+
+    public void DualWieldCheck()
+    {
+        if (MainHandEquipment is not null && OffHandEquipment is not null)
+        {
+            DualWield = true;
+            TwoHanded = false;
+        }
+        else
+        {
+            DualWield = false;
+        }
+    }
 
 
     //----------------------------  Armor Class  ----------------------------\\
 
     public List<Armor> Armor { get; set; } = new List<Armor>();
-    public void UpdateArmorValueForBodyParts()
+
+    public void UpdateArmorValuesForBodyParts()
     {
         foreach (var armor in Armor)
         {
+            bool fireProof = false;
+            switch (armor.Material)
+            {
+                case CharacterModel.Armor.ArmorMaterial.BulletProof:
+                case CharacterModel.Armor.ArmorMaterial.LightCombat:
+                case CharacterModel.Armor.ArmorMaterial.HeavyCombat:
+                case CharacterModel.Armor.ArmorMaterial.ExtraHeavyCombat:
+
+                    fireProof = true; break;
+
+                default: break;
+            }
+            var armor100BlockChance = new ArmorValues(armor.Absorb, 1, true, true, fireProof);
+            var armor50BlockChance = new ArmorValues(armor.Absorb, 0.5, true, true, fireProof);
+            var armor25BlockChance = new ArmorValues(armor.Absorb, 0.25, true, true, fireProof);
+            var shoulderAddsNoHeadProtection = new ArmorValues(armor.Absorb, 1, true, false, fireProof);
 
             switch (armor.Type)
             {
                 case CharacterModel.Armor.ArmorType.Head:
-                    Target.Head.ArmorValue += armor.ArmorValue;
+                    Target.Head.ArmorValues.Add(armor100BlockChance);
                     break;
 
                 case CharacterModel.Armor.ArmorType.Harness:
-                    Target.Chest.ArmorValue += armor.ArmorValue;
-                    Target.Stomach.ArmorValue += armor.ArmorValue;
+                    Target.Chest.ArmorValues.Add(armor100BlockChance);
+                    Target.Stomach.ArmorValues.Add(armor100BlockChance);
                     break;
 
                 case CharacterModel.Armor.ArmorType.Jacket:
-                    Target.Chest.ArmorValue += armor.ArmorValue;
-                    Target.Stomach.ArmorValue += armor.ArmorValue;
-                    Target.RightArm.ArmorValue += armor.ArmorValue;
-                    Target.LeftArm.ArmorValue += armor.ArmorValue;
+                    Target.Chest.ArmorValues.Add(armor100BlockChance);
+                    Target.Stomach.ArmorValues.Add(armor100BlockChance);
+                    Target.RightArm.ArmorValues.Add(armor100BlockChance);
+                    Target.LeftArm.ArmorValues.Add(armor100BlockChance);
                     break;
 
                 case CharacterModel.Armor.ArmorType.Trenchcoat:
-                    Target.Chest.ArmorValue += armor.ArmorValue;
-                    Target.Stomach.ArmorValue += armor.ArmorValue;
-                    Target.RightArm.ArmorValue += armor.ArmorValue;
-                    Target.LeftArm.ArmorValue += armor.ArmorValue;
-                    Target.RightLeg.ArmorValue += armor.ArmorValue;
-                    Target.LeftLeg.ArmorValue += armor.ArmorValue;
+                    Target.Chest.ArmorValues.Add(armor100BlockChance);
+                    Target.Stomach.ArmorValues.Add(armor100BlockChance);
+                    Target.RightArm.ArmorValues.Add(armor100BlockChance);
+                    Target.LeftArm.ArmorValues.Add(armor100BlockChance);
+                    Target.RightLeg.ArmorValues.Add(armor50BlockChance);
+                    Target.LeftLeg.ArmorValues.Add(armor50BlockChance);
                     break;
 
                 case CharacterModel.Armor.ArmorType.Bodysuit:
-                    Target.Chest.ArmorValue += armor.ArmorValue;
-                    Target.Stomach.ArmorValue += armor.ArmorValue;
-                    Target.RightArm.ArmorValue += armor.ArmorValue;
-                    Target.LeftArm.ArmorValue += armor.ArmorValue;
-                    Target.RightLeg.ArmorValue += armor.ArmorValue;
-                    Target.LeftLeg.ArmorValue += armor.ArmorValue;
+                    Target.Chest.ArmorValues.Add(armor100BlockChance);
+                    Target.Stomach.ArmorValues.Add(armor100BlockChance);
+                    Target.RightArm.ArmorValues.Add(armor100BlockChance);
+                    Target.LeftArm.ArmorValues.Add(armor100BlockChance);
+                    Target.RightLeg.ArmorValues.Add(armor100BlockChance);
+                    Target.LeftLeg.ArmorValues.Add(armor100BlockChance);
                     break;
 
                 case CharacterModel.Armor.ArmorType.Arms:
-                    Target.RightArm.ArmorValue += armor.ArmorValue;
-                    Target.LeftArm.ArmorValue += armor.ArmorValue;
+                    Target.RightArm.ArmorValues.Add(armor100BlockChance);
+                    Target.LeftArm.ArmorValues.Add(armor100BlockChance);
                     break;
 
                 case CharacterModel.Armor.ArmorType.Gloves:
-                    Target.RightArm.ArmorValue += armor.ArmorValue;
-                    Target.LeftArm.ArmorValue += armor.ArmorValue;
+                    Target.RightArm.ArmorValues.Add(armor25BlockChance);
+                    Target.LeftArm.ArmorValues.Add(armor25BlockChance);
                     break;
 
                 case CharacterModel.Armor.ArmorType.Legs:
-                    Target.RightLeg.ArmorValue += armor.ArmorValue;
-                    Target.LeftLeg.ArmorValue += armor.ArmorValue;
+                    Target.RightLeg.ArmorValues.Add(armor100BlockChance);
+                    Target.LeftLeg.ArmorValues.Add(armor100BlockChance);
                     break;
 
                 case CharacterModel.Armor.ArmorType.Knee:
-                    Target.RightLeg.ArmorValue += armor.ArmorValue;
-                    Target.LeftLeg.ArmorValue += armor.ArmorValue;
+                    Target.RightLeg.ArmorValues.Add(armor25BlockChance);
+                    Target.LeftLeg.ArmorValues.Add(armor25BlockChance);
+                    break;
+
+                case CharacterModel.Armor.ArmorType.Shoulders:
+                    Target.Head.ArmorValues.Add(shoulderAddsNoHeadProtection);
+                    Target.Chest.ArmorValues.Add(armor100BlockChance);
                     break;
             }
-
         }
     }
 
@@ -338,7 +385,7 @@ public class Character
 
     public void CalculateWeight()
     {
-        decimal weaponWeight = EquippedWeapon.Weight;
+        decimal weaponWeight = MainHandEquipment.Weight;
         WeightCarried = weaponWeight;
     }
 
@@ -377,15 +424,86 @@ public class Character
 
     public int ActionsRemaining { get; set; }
 
+    public List<Character> CurrentlyUnderFire { get; set; } = new List<Character>();
 
-    public enum Wounds
+    public bool IsAvoiding { get; set; }
+    public bool TakingCover { get; set; }
+
+    public short BurningCondition { get; set; } = 0;
+
+    public EnviromentWounds Wounds { get; set; }
+    public EnviromentStress Stress { get; set; }
+
+    public HeadOneBodyPointRemaining HeadHasOneBodyPointRemaining { get; private set; }
+    public ChestOneBodyPointRemaining ChestHasOneBodyPointRemaining { get; private set; }
+    public StomachOneBodyPointRemaining StomachHasOneBodyPointRemaining { get; private set; }
+    public RightArmOneBodyPointRemaining RightArmHasOneBodyPointRemaining { get; private set; }
+    public LeftArmOneBodyPointRemaining LeftArmHasOneBodyPointRemaining { get; private set; }
+    public RightLegOneBodyPointRemaining RightLegHasOneBodyPointRemaining { get; private set; }
+    public LeftLegOneBodyPointRemaining LeftLegHasOneBodyPointRemaining { get; private set; }
+
+    public enum EnviromentWounds
     {
-        OneOrTwoHitsInOneBodyPart,
-        ThreeOrFourHitsInOneBodyPart,
-        YouAreWoundedInMoreThanOneBodyPart,
-        OneBodyPartHasZeroBodyPointsLeft,
-        TwoOrMoreBodyPartsHaveNoBodyPointsLeft
+        None = 0,
+        OneOrTwoHitsInOneBodyPart = 1,
+        ThreeOrFourHitsInOneBodyPart = 2,
+        YouAreWoundedInMoreThanOneBodyPart = 3,
+        OneBodyPartHasZeroBodyPointsLeft = 4,
+        TwoOrMoreBodyPartsHaveNoBodyPointsLeft = 5
     }
+    public enum EnviromentStress
+    {
+        None = 0,
+        SomeoneFiresAtYou = 1,
+        PeopleFireAtYouFromSeveralDirections = 2,
+        WARNINGThreeSecondsToAutoDestruct = 3,
+        YourClothesAreOnFire = 4,
+        YouAreMidairFallingTowardCertainDeath = 5
+    }
+
+    #region Effects of Damage - Actions
+    public enum HeadOneBodyPointRemaining
+    {
+        False = 0,
+        True = -1
+    }
+    public enum ChestOneBodyPointRemaining
+    {
+        False = 0,
+        True = -1
+    }
+    public enum StomachOneBodyPointRemaining
+    {
+        False = 0,
+        True = -1
+    }
+    #endregion
+    #region Effects of Damage - Arms
+    public enum RightArmOneBodyPointRemaining
+    {
+        False = 0,
+        True = -5
+    }
+    public enum LeftArmOneBodyPointRemaining
+    {
+        False = 0,
+        True = -5
+    }
+    #endregion
+    #region Effects of Damage - Movement
+    public enum RightLegOneBodyPointRemaining
+    {
+        False = 0,
+        True = -1
+    }
+    public enum LeftLegOneBodyPointRemaining
+    {
+        False = 0,
+        True = -1
+    }
+
+    #endregion
+
+
+
 }
-
-

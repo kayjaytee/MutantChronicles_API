@@ -1,15 +1,18 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver.Linq;
 using MutantChroniclesAPI.Enums;
-using MutantChroniclesAPI.Model;
+using MutantChroniclesAPI.Interface;
 using MutantChroniclesAPI.Model.CharacterModel;
+using MutantChroniclesAPI.Model.EnviromentModel;
 using MutantChroniclesAPI.Model.WeaponModel;
 using MutantChroniclesAPI.Repository;
 using MutantChroniclesAPI.Services.Combat;
 using System.ComponentModel.DataAnnotations;
+using System.Runtime.CompilerServices;
 using System.Text;
 using static MC_Weapon_Calculator.Model.Ammo;
-using static MutantChroniclesAPI.Model.CharacterModel.Target;
+
+[assembly: InternalsVisibleTo("MutantChroniclesAPI.Tests")]
 
 namespace MutantChroniclesAPI.Controllers;
 
@@ -17,15 +20,25 @@ namespace MutantChroniclesAPI.Controllers;
 [ApiController]
 public class CombatController : ControllerBase
 {
+
     private static List<Character> combatants;
     private static List<Character> defeated;
     private static List<(Character character, int initiative)> initiativeOrder;
     private static Character characterCurrentTurn;
+    private static Character characterPreviousTurn; //WIP
 
-    private static int CurrentRound = 1;
-    private static bool CombatInProgress;
+    private static int currentRound = 1;
+    private static bool combatInProgress;
     private static string combatStatus;
+    private static IEnviromentService _enviromentService;
+    private static ICombatService _combatService;
     private int initiative;
+    public CombatController(IEnviromentService enviromentService,
+                            ICombatService combatService)
+    {
+        _enviromentService = enviromentService;
+        _combatService = combatService;
+    }
 
 
     [HttpPost("StartCombat")]
@@ -33,7 +46,7 @@ public class CombatController : ControllerBase
     {
         try
         {
-            if (CombatInProgress is true)
+            if (combatInProgress is true)
             {
                 return BadRequest("Combat is already in progress");
             }
@@ -42,7 +55,7 @@ public class CombatController : ControllerBase
                 return NotFound("There are no characters created.");
             }
 
-            CombatInProgress = true;
+            combatInProgress = true;
             characterCurrentTurn = null;
 
             // Set the combatants list with characters from the CharacterRepository
@@ -51,16 +64,16 @@ public class CombatController : ControllerBase
             foreach (var character in combatants)
             {
                 character.ActionsRemaining = character.ActionsPerRound;
-                InitializeTemporaryBodyPoints(character.Target);
+                _combatService.InitializeTemporaryBodyPoints(character.Target);
             }
 
-            initiativeOrder = await InitiativeRoll(combatants);
+            initiativeOrder = _combatService.InitiativeRoll(combatants);
             if (initiativeOrder.Count > 0)
             {
                 characterCurrentTurn = initiativeOrder[0].character; // Set the character who won the initiative as current turn
             }
 
-            combatStatus = StringBuilderFormatInitiative(initiativeOrder, CurrentRound, characterCurrentTurn);
+            combatStatus = _combatService.StringBuilderFormatInitiative(initiativeOrder, currentRound, characterCurrentTurn);
 
             return Ok(combatStatus);
 
@@ -76,7 +89,7 @@ public class CombatController : ControllerBase
     [HttpGet("DisplayTurn")]
     public async Task<IActionResult> DisplayTurn()
     {
-        if (CombatInProgress is false)
+        if (combatInProgress is false)
         {
             return BadRequest("No combat in progress.");
         }
@@ -88,9 +101,9 @@ public class CombatController : ControllerBase
     }
 
     [HttpGet("DisplayStats")]
-    public async Task<IActionResult> DisplayStats()
+    public async Task<IActionResult> DisplayStats() //TEST IMPROVEMENT: BETTER SETUP OPTIONS
     {
-        if (CombatInProgress is false)
+        if (combatInProgress is false)
         {
             return BadRequest("No combat in progress.");
         }
@@ -100,19 +113,40 @@ public class CombatController : ControllerBase
             foreach (var combatant in combatants)
             {
                 stringBuilder.AppendLine($"Combatant: {combatant.Name}");
+                stringBuilder.AppendLine($"Equipment: {combatant.Armor.ToList()}");
 
-                stringBuilder.AppendLine($"Head BP {combatant.Target.Head.TemporaryBodyPoints} | AV: {combatant.Target.Head.ArmorValue}");
-                stringBuilder.AppendLine($"Chest BP {combatant.Target.Chest.TemporaryBodyPoints} | AV: {combatant.Target.Chest.ArmorValue}");
-                stringBuilder.AppendLine($"Stomach BP {combatant.Target.Stomach.TemporaryBodyPoints} | AV: {combatant.Target.Stomach.ArmorValue}");
-                stringBuilder.AppendLine($"RightArm BP {combatant.Target.RightArm.TemporaryBodyPoints} | AV: {combatant.Target.RightArm.ArmorValue}");
-                stringBuilder.AppendLine($"LeftArm BP {combatant.Target.LeftArm.TemporaryBodyPoints} | AV: {combatant.Target.LeftArm.ArmorValue}");
-                stringBuilder.AppendLine($"RightLeg BP {combatant.Target.RightLeg.TemporaryBodyPoints} | AV: {combatant.Target.RightLeg.ArmorValue}");
-                stringBuilder.AppendLine($"LeftLeg BP {combatant.Target.LeftLeg.TemporaryBodyPoints} | AV: {combatant.Target.LeftLeg.ArmorValue}");
+                stringBuilder.AppendLine($"Head BP {combatant.Target.Head.TemporaryBodyPoints}/{combatant.Target.Head.MaximumBodyPoints} | AV: {combatant.Target.Head.ArmorValues.Sum(x => x.Absorb)}");
+                stringBuilder.AppendLine($"Chest BP {combatant.Target.Chest.TemporaryBodyPoints}/{combatant.Target.Chest.MaximumBodyPoints} | AV: {combatant.Target.Chest.ArmorValues.Sum(x => x.Absorb)}");
+                stringBuilder.AppendLine($"Stomach BP {combatant.Target.Stomach.TemporaryBodyPoints}/{combatant.Target.Stomach.MaximumBodyPoints} | AV: {combatant.Target.Stomach.ArmorValues.Sum(x => x.Absorb)}");
+                stringBuilder.AppendLine($"RightArm BP {combatant.Target.RightArm.TemporaryBodyPoints}/{combatant.Target.RightArm.MaximumBodyPoints} | AV: {combatant.Target.RightArm.ArmorValues.Sum(x => x.Absorb)}");
+                stringBuilder.AppendLine($"LeftArm BP {combatant.Target.LeftArm.TemporaryBodyPoints}/{combatant.Target.LeftArm.MaximumBodyPoints} | AV: {combatant.Target.LeftArm.ArmorValues.Sum(x => x.Absorb)}");
+                stringBuilder.AppendLine($"RightLeg BP {combatant.Target.RightLeg.TemporaryBodyPoints}/{combatant.Target.RightLeg.MaximumBodyPoints} | AV: {combatant.Target.RightLeg.ArmorValues.Sum(x => x.Absorb)}");
+                stringBuilder.AppendLine($"LeftLeg BP {combatant.Target.LeftLeg.TemporaryBodyPoints}/{combatant.Target.LeftLeg.MaximumBodyPoints} | AV: {combatant.Target.LeftLeg.ArmorValues.Sum(x => x.Absorb)}");
                 stringBuilder.AppendLine();
-                if (combatant.EquippedWeapon is not null)
+
+                stringBuilder.AppendLine($"Character Stress: {combatant.Stress.ToString()} (-{(int)combatant.Stress})");
+                stringBuilder.AppendLine($"Character Wounds: {combatant.Wounds.ToString()} (-{(int)combatant.Wounds})");
+
+                stringBuilder.AppendLine();
+                if (combatant.MainHandEquipment is not null)
                 {
-                    stringBuilder.AppendLine($"Equipped Weapon: {combatant.EquippedWeapon.Description}: <{combatant.EquippedWeapon.Name}>");
-                    stringBuilder.AppendLine($"Magazine: {combatant.EquippedWeapon.CurrentAmmo}/{combatant.EquippedWeapon.MagazineCapacity}");
+                    stringBuilder.AppendLine($"Equipped Weapon (in Main Hand): {combatant.MainHandEquipment.Description}: <{combatant.MainHandEquipment.Name}>");
+                    stringBuilder.AppendLine($"Magazine: {combatant.MainHandEquipment.CurrentAmmo}/{combatant.MainHandEquipment.MagazineCapacity} (Ammo Type: '{combatant.MainHandEquipment.AmmoType}')");
+                    if (combatant.MainHandEquipment.SecondaryMode is not null && combatant.MainHandEquipment.SecondaryMode.Equipped is true)
+                    {
+                        stringBuilder.AppendLine($"Secondary Firing Mode: <{combatant.MainHandEquipment.SecondaryMode.NameDescription}>");
+                        stringBuilder.AppendLine($"Magazine: {combatant.MainHandEquipment.SecondaryMode.CurrentAmmo}/{combatant.MainHandEquipment.SecondaryMode.MagazineCapacity}");
+                    }
+                }
+                if (combatant.OffHandEquipment is not null)
+                {
+                    stringBuilder.AppendLine($"Equipped Weapon (in Off Hand): {combatant.OffHandEquipment.Description}: <{combatant.OffHandEquipment.Name}>");
+                    stringBuilder.AppendLine($"Magazine: {combatant.OffHandEquipment.CurrentAmmo}/{combatant.OffHandEquipment.MagazineCapacity} (Ammo Type: '{combatant.OffHandEquipment.AmmoType}')");
+                    if (combatant.OffHandEquipment.SecondaryMode is not null && combatant.OffHandEquipment.SecondaryMode.Equipped is true)
+                    {
+                        stringBuilder.AppendLine($"Secondary Firing Mode: <{combatant.OffHandEquipment.SecondaryMode.NameDescription}>");
+                        stringBuilder.AppendLine($"Magazine: {combatant.OffHandEquipment.SecondaryMode.CurrentAmmo}/{combatant.OffHandEquipment.SecondaryMode.MagazineCapacity}");
+                    }
                 }
                 else
                 {
@@ -121,6 +155,9 @@ public class CombatController : ControllerBase
 
                 stringBuilder.AppendLine(); // Add a blank line between combatants
             }
+
+            stringBuilder.AppendLine($"Weather Modifier: {_enviromentService.GetWeatherModifiers()} -({(int)_enviromentService.GetWeatherModifiers()})");
+            stringBuilder.AppendLine($"Light Modifier: {_enviromentService.GetLightModifiers()} -({(int)_enviromentService.GetLightModifiers()})");
 
             foreach (var combatant in defeated)
             {
@@ -152,15 +189,30 @@ public class CombatController : ControllerBase
     [HttpPost("NextRound")]
     public async Task<IActionResult> NextRound()
     {
-        if (CombatInProgress is false)
+        if (combatInProgress is false)
         {
             return BadRequest("No combat in progress.");
         }
         else
         {
-            CheckForDefeatedCombatants();
-            CurrentRound++;
-            initiativeOrder = await InitiativeRoll(combatants);
+            _combatService.CheckForDefeatedCombatants(initiativeOrder, combatants, defeated);
+            currentRound++;
+            initiativeOrder = _combatService.InitiativeRoll(combatants);
+            foreach (var character in combatants)
+            {
+                character.CurrentlyUnderFire.Clear();
+                switch (character.Stress)
+                {
+                    //Reset Stress from being fired at
+                    case Character.EnviromentStress.SomeoneFiresAtYou:
+                    case Character.EnviromentStress.PeopleFireAtYouFromSeveralDirections:
+                        character.Stress = 0;
+                        break;
+
+                    default:
+                        break;
+                }
+            }
 
             // Reset ActionsRemaining for all combatants
             foreach (var character in combatants)
@@ -172,8 +224,8 @@ public class CombatController : ControllerBase
             {
                 characterCurrentTurn = initiativeOrder[0].character; // Set the character who won the initiative as current turn
             }
-
-            combatStatus = StringBuilderFormatInitiative(initiativeOrder, CurrentRound, characterCurrentTurn);
+            _combatService.CheckForWounds(combatants);
+            combatStatus = _combatService.StringBuilderFormatInitiative(initiativeOrder, currentRound, characterCurrentTurn);
 
             return Ok(combatStatus);
         }
@@ -195,206 +247,314 @@ public class CombatController : ControllerBase
                                             [FromQuery] decimal range,
                                             [FromQuery] RapidVolleyBulletsCount? rapidVolleyBulletsCount = null)
     {
-        int shotsToCalculate = 0;
-
-        if (characterCurrentTurn.ActionsRemaining <= 0)
+        try
         {
-            return BadRequest(characterCurrentTurn.Name + " has ran out of actions.");
-        }
-        if (CombatInProgress is false)
-        {
-            return BadRequest("No combat in progress.");
-        }
-        if (firingMode is FiringMode.AreaSpray)
-        {
-            aim = AimType.Uncontrolled; //Area Spray is always considered Uncontrolled
-        }
+            var weapon = characterCurrentTurn.MainHandEquipment;
+            var targetCharacter = combatants.FirstOrDefault(x => string.Equals(x.Name, target, StringComparison.OrdinalIgnoreCase));
+            int shotsToCalculate = 0;
+            _combatService.CheckForWounds(combatants);
 
-        var weapon = characterCurrentTurn.EquippedWeapon;
-        if (weapon is null)
-        {
-            return BadRequest("Character is not carrying a ranged weapon.");
-        }
-
-        var targetCharacter = combatants.FirstOrDefault(x => string.Equals(x.Name, target, StringComparison.OrdinalIgnoreCase));
-        if (targetCharacter is null || targetCharacter == characterCurrentTurn)
-        {
-            return BadRequest("Invalid target.");
-        }
-        if (IsFiringModeAllowed(weapon, firingMode, secondaryModeActivated) is false)
-        {
-            return BadRequest("Firing mode not allowed for this weapon.");
-        }
-
-        var aimingMode = ApplyAimingMode(aim, weapon, ref characterCurrentTurn, range, ref baseChance);
-        if (aimingMode is BadRequestObjectResult)
-        {
-            return BadRequest(); //improve desc.
-        }
-
-        // Update ActionsRemaining in combatants list
-        int characterIndex = combatants.FindIndex(x => x == characterCurrentTurn);
-        if (characterIndex is not -1)
-        {
-            combatants[characterIndex].ActionsRemaining = characterCurrentTurn.ActionsRemaining;
-        }
-
-        var checkForEmptyMagazine = CheckForEmptyMagazine(weapon, secondaryModeActivated);
-        if (checkForEmptyMagazine is OkObjectResult)
-        {
-            return Ok("Out of ammo! You need to reload your magazine.");
-        }
-
-        AmmoHandler(weapon, firingMode, rapidVolleyBulletsCount, ref baseChance, ref shotsToCalculate, secondaryModeActivated);
-
-        StringBuilder resultBuilder = new StringBuilder();
-
-        bool isCriticalHitApplied = false; //For controlling multipleTargetAreas. Only 1 body part can take critical damage per shot
-
-        for (int i = 0; i < shotsToCalculate; i++)
-        {
-
-            int d20HitRoll = Dice.Roll1D20();
-
-            bool isHit = d20HitRoll <= baseChance;
-
-            bool critical = d20HitRoll == 1; // Check if it's a critical hit
-            bool fumble = d20HitRoll == 20; // Check if user fumbled
-
-            resultBuilder.AppendLine($"Chance of Success: {baseChance}");
-            resultBuilder.AppendLine($"{characterCurrentTurn.Name.ToUpper()} fires at {targetCharacter.Name.ToUpper()} and...");
-            resultBuilder.AppendLine($"Roll: {d20HitRoll}");
-
-
-            if (fumble)
+            #region BadRequests
+            if (characterCurrentTurn.ActionsRemaining <= 0)
             {
-                resultBuilder.AppendLine($"Whoops! You jammed your weapon...");
-                int d10JamRoll = Dice.Roll1D10();
-                if (d10JamRoll > characterCurrentTurn.EquippedWeapon.JammingFactor)
-                {
-                    resultBuilder.AppendLine($"...severly...");
-                    characterCurrentTurn.EquippedWeapon.WeaponIsJammed = true;
-                }
-
-                int actionsLost = characterCurrentTurn.ActionsRemaining - Dice.Roll1D6();
-                characterCurrentTurn.ActionsRemaining -= actionsLost;
-                if (characterCurrentTurn.ActionsRemaining < 0)
-                {
-                    characterCurrentTurn.ActionsRemaining = 0;
-                }
-                resultBuilder.AppendLine($"...and lost {actionsLost} actions.");
-                CheckForDefeatedCombatants();
-                UpdateTurn(initiativeOrder);
-                return Ok(resultBuilder.ToString());
+                return BadRequest(characterCurrentTurn.Name + " has ran out of actions.");
             }
-            if (critical)
+            if (combatInProgress is false)
             {
-                resultBuilder.AppendLine($"CRITICAL HIT!");
-            }
-            else
-            {
-                resultBuilder.AppendLine(isHit ? "HITS!" : "MISS!");
-
+                return BadRequest("No combat in progress.");
             }
 
-            if (isHit || d20HitRoll == 1)
+            if (weapon is null)
             {
-
-                int multipleTargetAreas = weapon.TargetMultipleHits > 0 ? Dice.RollTargetAreas(weapon.TargetMultipleHits) : 1;
-                if (weapon.Category is Weapon.WeaponCategory.Shotgun)
-                {
-                    // For shotguns, always hit 2 body parts on Hits
-                    multipleTargetAreas = 2;
-                }
-
-                for (int y = 0; y < multipleTargetAreas; y++)
-                {
-
-                    int d20Result = Dice.Roll1D20();
-                    var hitLocation = targetCharacter.Target;
-
-
-                    int damage = Dice.RollDamage(weapon.DamageMin,
-                                    weapon.DamageMax,
-                                    weapon.DamageAdded);
-
-                    if (critical)
-                    {
-                        damage = weapon.DamageMax + weapon.DamageAdded;
-                        isCriticalHitApplied = true;
-                    }
-                    resultBuilder.AppendLine($"{targetCharacter.Name.ToUpper()} takes {damage}");
-                    switch (d20Result)
-                    {
-                        case int x when x <= 3:
-                            ApplyDamageToBodyPart(hitLocation.LeftLeg, damage, weapon.AmmoType);
-                            resultBuilder.AppendLine($"in Left Leg!");
-                            break;
-                        case int x when x <= 6:
-                            ApplyDamageToBodyPart(hitLocation.RightLeg, damage, weapon.AmmoType);
-                            resultBuilder.AppendLine($"in Right Leg!");
-                            break;
-                        case int x when x <= 8:
-                            ApplyDamageToBodyPart(hitLocation.LeftArm, damage, weapon.AmmoType);
-                            resultBuilder.AppendLine($"in Left Arm!");
-                            break;
-                        case int x when x <= 10:
-                            ApplyDamageToBodyPart(hitLocation.RightArm, damage, weapon.AmmoType);
-                            resultBuilder.AppendLine($"in Right Arm!");
-                            break;
-                        case int x when x <= 14:
-                            ApplyDamageToBodyPart(hitLocation.Stomach, damage, weapon.AmmoType);
-                            resultBuilder.AppendLine($"in Stomach!");
-                            break;
-                        case int x when x <= 19:
-                            ApplyDamageToBodyPart(hitLocation.Chest, damage, weapon.AmmoType);
-                            resultBuilder.AppendLine($"in Chest!");
-                            break;
-                        default: //when x == 20
-                            ApplyDamageToBodyPart(hitLocation.Head, damage, weapon.AmmoType);
-                            resultBuilder.AppendLine($"in Head!");
-                            break;
-                    }
-                    resultBuilder.AppendLine();
-                }
-
-                isCriticalHitApplied = false; // Reset the flag for the next shot
+                return BadRequest("Character is not carrying a ranged weapon.");
             }
-            else
+
+            if (targetCharacter is null || targetCharacter == characterCurrentTurn)
             {
-                if (firingMode == FiringMode.Burst || firingMode == FiringMode.FullAuto)
-                {
-                    // If burst/full auto fails due to a miss, break the loop
+                return BadRequest("Invalid target.");
+            }
+            if (_combatService.IsFiringModeAllowed(weapon, firingMode, secondaryModeActivated) is false)
+            {
+                return BadRequest("Firing mode not allowed for this weapon.");
+            }
+
+            var aimingMode = ApplyAimingMode(aim, weapon, ref characterCurrentTurn, range, ref baseChance);
+            if (aimingMode is BadRequestObjectResult)
+            {
+                return BadRequest(); //improve desc.
+            }
+
+            if (firingMode is FiringMode.AreaSpray)
+            {
+                aim = AimType.Uncontrolled; //Area Spray is always considered Uncontrolled
+            }
+            #endregion BadRequests
+
+            // Update ActionsRemaining in combatants list
+            int characterIndex = combatants.FindIndex(x => x == characterCurrentTurn);
+            if (characterIndex is not -1)
+            {
+                combatants[characterIndex].ActionsRemaining = characterCurrentTurn.ActionsRemaining;
+            }
+
+            switch (_combatService.IsMagazineEmptyCheck(weapon, secondaryModeActivated))
+            {
+                case true:
+                    return Ok("CLICK! Out of ammo! You need to reload your magazine.");
+                case false:
                     break;
+            }
+
+            _combatService.AmmoHandler(weapon, firingMode, rapidVolleyBulletsCount, ref baseChance, ref shotsToCalculate, secondaryModeActivated);
+
+            StringBuilder resultBuilder = new StringBuilder();
+
+            bool isCriticalHitApplied = false; //For controlling multipleTargetAreas. Only 1 body part can take critical damage per shot
+
+            _combatService.CalculateHitChance(characterCurrentTurn, baseChance,
+            (Enviroment.Light)_enviromentService.GetLightModifiers(),
+            (Enviroment.Weather)_enviromentService.GetWeatherModifiers());
+
+
+            for (int i = 0; i < shotsToCalculate; i++)
+            {
+
+                int d20HitRoll = Dice.Roll1D20();
+
+                bool isHit = d20HitRoll <= baseChance;
+
+                bool critical = d20HitRoll == 1; // Check if it's a critical hit
+                bool fumble = d20HitRoll == 20; // Check if user fumbled
+
+                resultBuilder.AppendLine($"Chance of Success: {baseChance}");
+                resultBuilder.AppendLine($"Modifiers:");
+                resultBuilder.AppendLine($"Wounds: {characterCurrentTurn.Wounds.ToString()}, (-{((int)characterCurrentTurn.Wounds)})");
+                resultBuilder.AppendLine($"Stress: {characterCurrentTurn.Stress.ToString()}, (-{((int)characterCurrentTurn.Stress)})");
+                resultBuilder.AppendLine($"Light: {_enviromentService.GetLightModifiers()}, (-{(int)_enviromentService.GetLightModifiers()}");
+                resultBuilder.AppendLine($"Weather: {_enviromentService.GetWeatherModifiers()}, (-{(int)_enviromentService.GetWeatherModifiers()}");
+                resultBuilder.AppendLine();
+                resultBuilder.AppendLine($"{characterCurrentTurn.Name.ToUpper()} fires at {targetCharacter.Name.ToUpper()} and...");
+                resultBuilder.AppendLine($"Roll: {d20HitRoll}");
+
+                _combatService.ApplyStressToTarget(targetCharacter, characterCurrentTurn);
+
+                if (fumble)
+                {
+                    resultBuilder.AppendLine($"Whoops! You jammed your weapon...");
+                    int d10JamRoll = Dice.Roll1D10();
+                    if (d10JamRoll >= characterCurrentTurn.MainHandEquipment.JammingFactor)
+                    {
+                        resultBuilder.AppendLine($"...the magazine is completely stuck.");
+                    }
+
+                    int actionsLost = characterCurrentTurn.ActionsRemaining - Dice.Roll1D6();
+                    characterCurrentTurn.ActionsRemaining -= actionsLost;
+                    if (characterCurrentTurn.ActionsRemaining < 0)
+                    {
+                        characterCurrentTurn.ActionsRemaining = 0;
+                    }
+                    resultBuilder.AppendLine($"...and lost {actionsLost} actions.");
+                    characterCurrentTurn.MainHandEquipment.WeaponIsJammed = true;
+                    characterCurrentTurn.MainHandEquipment.SuccessfulUnjamAttempts = 0;
+                    _combatService.CheckForDefeatedCombatants(initiativeOrder, combatants, defeated);
+                    _combatService.UpdateTurn(initiativeOrder, characterCurrentTurn, currentRound, combatStatus);
+                    return Ok(resultBuilder.ToString());
+                }
+                if (critical)
+                {
+                    resultBuilder.AppendLine($"CRITICAL HIT!");
+                }
+                else
+                {
+
+                    resultBuilder.AppendLine(isHit ? "HITS!" : "MISS!");
+
+                }
+                if (isHit || d20HitRoll == 1)
+                {
+                    int multipleTargetAreas = weapon.TargetMultipleHits > 0 ? Dice.RollTargetAreas(weapon.TargetMultipleHits) : 1;
+                    if (weapon.Category is Weapon.WeaponCategory.Shotgun)
+                    {
+                        // For shotguns, always hit 2 body parts on Hits
+                        multipleTargetAreas = 2;
+                    }
+
+                    for (int y = 0; y < multipleTargetAreas; y++)
+                    {
+
+                        int d20Result = Dice.Roll1D20();
+                        var hitLocation = targetCharacter.Target;
+
+                        int damage = Dice.RollDamage(weapon.DamageMin,
+                                        weapon.DamageMax,
+                                        weapon.DamageAdded);
+
+                        if (targetCharacter.IsAvoiding is true)
+                        {
+                            resultBuilder.AppendLine($"({targetCharacter.Name.ToUpper()} attempts to take cover and avoid the incoming attack...");
+
+                            switch (_combatService.AvoidAttempt(targetCharacter, firingMode,
+                                       _enviromentService.GetLightModifiers(),
+                                       _enviromentService.GetWeatherModifiers()))
+                            {
+                                case true:
+
+                                    switch (firingMode)
+                                    {
+                                        case FiringMode.SingleRound:
+                                            //Avoid 1 roll
+                                            break;
+                                        case FiringMode.Burst:
+                                            //Avoid 1 roll, for both attacks
+                                            break;
+                                        case FiringMode.FullAuto:
+                                        case FiringMode.RapidVolley:
+                                            //Seperate Avoid rolls must be made for each successful attack roll
+                                            break;
+                                        case FiringMode.AreaSpray:
+                                            //Avoid 1 roll with +3 bonus
+                                            break;
+                                    }
+                                    if (characterCurrentTurn.MainHandEquipment.Category is Weapon.WeaponCategory.Shotgun)
+                                    {
+
+                                    }
+                                    else
+                                    {
+
+                                    }
+                                    break;
+
+                                case false:
+                                    resultBuilder.AppendLine($"({targetCharacter.Name.ToUpper()} tries to take cover but fails.");
+                                    break;
+                            }
+
+
+                        }
+
+                        if (critical)
+                        {
+                            damage = weapon.DamageMax + weapon.DamageAdded;
+                            isCriticalHitApplied = true;
+                        }
+                        if (weapon.Category is Weapon.WeaponCategory.Shotgun &&
+                            targetCharacter.IsAvoiding is true &&
+                            _combatService.AvoidAttempt(targetCharacter, firingMode,
+                            _enviromentService.GetLightModifiers(),
+                            _enviromentService.GetWeatherModifiers()) is true)
+                        {
+                            //SHOTGUN: IF AVOIDANCE IS SUCCESSFUL FOR SHOTGUN, STILL TAKE HALF DAMAGE
+                            damage = (int)(damage * 0.5);
+                        }
+
+                        resultBuilder.AppendLine($"{targetCharacter.Name.ToUpper()} takes {damage}...");
+
+                        switch (d20Result)
+                        {
+                            case int x when x <= 3:
+                                _combatService.ApplyDamageToBodyPart(hitLocation.LeftLeg, damage, weapon.AmmoType);
+                                resultBuilder.AppendLine($"in Left Leg!");
+                                break;
+                            case int x when x <= 6:
+                                _combatService.ApplyDamageToBodyPart(hitLocation.RightLeg, damage, weapon.AmmoType);
+                                resultBuilder.AppendLine($"in Right Leg!");
+                                break;
+                            case int x when x <= 8:
+                                _combatService.ApplyDamageToBodyPart(hitLocation.LeftArm, damage, weapon.AmmoType);
+                                resultBuilder.AppendLine($"in Left Arm!");
+                                break;
+                            case int x when x <= 10:
+                                _combatService.ApplyDamageToBodyPart(hitLocation.RightArm, damage, weapon.AmmoType);
+                                resultBuilder.AppendLine($"in Right Arm!");
+                                break;
+                            case int x when x <= 14:
+                                _combatService.ApplyDamageToBodyPart(hitLocation.Stomach, damage, weapon.AmmoType);
+                                resultBuilder.AppendLine($"in Stomach!");
+                                break;
+                            case int x when x <= 19:
+                                _combatService.ApplyDamageToBodyPart(hitLocation.Chest, damage, weapon.AmmoType);
+                                resultBuilder.AppendLine($"in Chest!");
+                                break;
+                            default: //when x == 20
+                                _combatService.ApplyDamageToBodyPart(hitLocation.Head, damage, weapon.AmmoType);
+                                resultBuilder.AppendLine($"in Head!");
+                                break;
+                        }
+                        resultBuilder.AppendLine();
+                    }
+
+                    isCriticalHitApplied = false; // Reset the flag for the next shot
+                }
+                else
+                {
+                    if (firingMode is FiringMode.Burst || firingMode is FiringMode.FullAuto)
+                    {
+                        // If burst/full auto fails due to a miss, break the loop
+                        break;
+                    }
                     resultBuilder.AppendLine($"(d20Result: {d20HitRoll})");
                 }
+
             }
 
+            _combatService.CheckForDefeatedCombatants(initiativeOrder, combatants, defeated);
+            _combatService.CheckForWounds(combatants);
+            if (combatants.Count >= 2)
+            {
+                _combatService.UpdateTurn(initiativeOrder, characterCurrentTurn, currentRound, combatStatus);
+            }
+            return Ok(resultBuilder.ToString());
         }
-
-        CheckForDefeatedCombatants();
-        if (combatants.Count >= 2)
+        catch (Exception e)
         {
-            UpdateTurn(initiativeOrder);
+            return BadRequest(e);
         }
-        return Ok(resultBuilder.ToString());
     }
 
     [HttpPost("Action/Reload")]
-    public async Task<IActionResult> ActionReload(int baseChance)
+    public async Task<IActionResult> ActionReload(int baseChance, bool? secondaryModeActivated, AmmoType ammotype)
     {
-        if (characterCurrentTurn.EquippedWeapon is null)
+        if (characterCurrentTurn.MainHandEquipment is null)
         {
             return BadRequest("You don't have a weapon equipped");
         }
-        if (characterCurrentTurn.EquippedWeapon.WeaponIsJammed is true)
+
+        if (characterCurrentTurn.Target.RightArm.TemporaryBodyPoints <= 0 &&
+           characterCurrentTurn.Target.LeftArm.TemporaryBodyPoints <= 0)
         {
-            return BadRequest("Your weapon is jammed!");
+            return BadRequest("Your arms are critically wounded and cannot be used!");
         }
 
-        if (characterCurrentTurn.ActionsRemaining < characterCurrentTurn.EquippedWeapon.ReloadingTime)
+        if (characterCurrentTurn.ActionsRemaining < characterCurrentTurn.MainHandEquipment.ReloadingTime)
         {
             return BadRequest("You don't have enough actions to start reloading your weapon");
+        }
+
+        _combatService.CalculateHitChance(characterCurrentTurn, baseChance,
+        (Enviroment.Light)(_enviromentService.GetLightModifiers()),
+        (Enviroment.Weather)(_enviromentService.GetWeatherModifiers()));
+
+        switch (secondaryModeActivated)
+        {
+            case true:
+
+                if (characterCurrentTurn.MainHandEquipment.SecondaryMode.WeaponIsJammed is true)
+                {
+                    return BadRequest("Your weapon is jammed!");
+                }
+
+                break;
+
+            case false:
+            case null:
+
+                if (characterCurrentTurn.MainHandEquipment.WeaponIsJammed is true)
+                {
+                    return BadRequest("Your weapon is jammed!");
+                }
+
+                break;
         }
 
         int d20HitRoll = Dice.Roll1D20();
@@ -402,25 +562,56 @@ public class CombatController : ControllerBase
 
         if (d20HitRoll == 20)
         {
-            characterCurrentTurn.ActionsRemaining -= characterCurrentTurn.EquippedWeapon.ReloadingTime;
-            UpdateTurn(initiativeOrder);
+            characterCurrentTurn.ActionsRemaining -= characterCurrentTurn.MainHandEquipment.ReloadingTime;
+            _combatService.UpdateTurn(initiativeOrder, characterCurrentTurn, currentRound, combatStatus);
             return Ok("$Whoops! Your magazine dropped on the ground...");
         }
         else if (isSuccessful || d20HitRoll != 20)
         {
-            characterCurrentTurn.ActionsRemaining -= characterCurrentTurn.EquippedWeapon.ReloadingTime;
-            characterCurrentTurn.EquippedWeapon.CurrentAmmo = characterCurrentTurn.EquippedWeapon.MagazineCapacity;
-            UpdateTurn(initiativeOrder);
-            return Ok($"{characterCurrentTurn.EquippedWeapon.Name} reloaded with a new magazine!");
+            characterCurrentTurn.ActionsRemaining -= characterCurrentTurn.MainHandEquipment.ReloadingTime;
+            if (secondaryModeActivated is true)
+            {
+                if (characterCurrentTurn.MainHandEquipment.Category is Weapon.WeaponCategory.AssaultRifle
+                    && characterCurrentTurn.MainHandEquipment.SecondaryMode is not null)
+                {
+                    switch (characterCurrentTurn.MainHandEquipment.SecondaryMode.NameDescription)
+                    {
+                        case "M50": break;
+                        case "Shogun": break;
+                        case "AR3000": break;
+                        case "Panzerknacker": break;
+                        case "Volcano": break;
+                        default: break;
+
+                            //Unfinished: The the weapons listed above are cases where ammo is only loaded 1 by 1, instead of whole magazine for secondary firing mode.
+                    }
+                }
+                characterCurrentTurn.MainHandEquipment.SecondaryMode.CurrentAmmo = characterCurrentTurn.MainHandEquipment.SecondaryMode.MagazineCapacity;
+            }
+            else
+            {
+                if (characterCurrentTurn.MainHandEquipment.Category is Weapon.WeaponCategory.Shotgun //Shotguns reload 1 ammo per round, with small expections
+                && characterCurrentTurn.MainHandEquipment.Name.Equals("Mandible") is false)
+                {
+                    characterCurrentTurn.MainHandEquipment.CurrentAmmo++;
+                    characterCurrentTurn.MainHandEquipment.AmmoType = ammotype;
+                }
+                else
+                {
+                    characterCurrentTurn.MainHandEquipment.CurrentAmmo = characterCurrentTurn.MainHandEquipment.MagazineCapacity;
+                    characterCurrentTurn.MainHandEquipment.AmmoType = ammotype;
+                }
+            }
+
+            _combatService.UpdateTurn(initiativeOrder, characterCurrentTurn, currentRound, combatStatus);
+            return Ok($"{characterCurrentTurn.MainHandEquipment.Name} reloaded with a new magazine!");
         }
         else
         {
-            characterCurrentTurn.ActionsRemaining -= characterCurrentTurn.EquippedWeapon.ReloadingTime;
-            UpdateTurn(initiativeOrder);
+            characterCurrentTurn.ActionsRemaining -= characterCurrentTurn.MainHandEquipment.ReloadingTime;
+            _combatService.UpdateTurn(initiativeOrder, characterCurrentTurn, currentRound, combatStatus);
             return Ok("$You didn't fit the magazine properly...Try agian!");
         }
-
-
     }
 
     [HttpOptions("Action/Melee")]
@@ -431,11 +622,11 @@ public class CombatController : ControllerBase
         {
             return BadRequest(characterCurrentTurn.Name + " has ran out of actions.");
         }
-        if (CombatInProgress is false)
+        if (combatInProgress is false)
         {
             return BadRequest("No combat in progress.");
         }
-        Weapon weapon = characterCurrentTurn.EquippedWeapon;
+        Weapon weapon = characterCurrentTurn.MainHandEquipment;
         Character targetCharacter = combatants.FirstOrDefault(x => x.Name == target);
 
         if (targetCharacter is null || targetCharacter == characterCurrentTurn)
@@ -452,7 +643,7 @@ public class CombatController : ControllerBase
             combatants[characterIndex].ActionsRemaining = characterCurrentTurn.ActionsRemaining;
         }
 
-        UpdateTurn(initiativeOrder);
+        _combatService.UpdateTurn(initiativeOrder, characterCurrentTurn, currentRound, combatStatus);
         StringBuilder resultBuilder = new StringBuilder();
 
         int d20HitRoll = Dice.Roll1D20();
@@ -497,31 +688,31 @@ public class CombatController : ControllerBase
             switch (d20Result)
             {
                 case int x when x <= 3:
-                    ApplyDamageToBodyPart(hitLocation.LeftLeg, damage, null);
+                    _combatService.ApplyDamageToBodyPart(hitLocation.LeftLeg, damage, null);
                     resultBuilder.AppendLine($"in Left Leg!");
                     break;
                 case int x when x <= 6:
-                    ApplyDamageToBodyPart(hitLocation.RightLeg, damage, null);
+                    _combatService.ApplyDamageToBodyPart(hitLocation.RightLeg, damage, null);
                     resultBuilder.AppendLine($"in Right Leg!");
                     break;
                 case int x when x <= 9:
-                    ApplyDamageToBodyPart(hitLocation.LeftArm, damage, null);
+                    _combatService.ApplyDamageToBodyPart(hitLocation.LeftArm, damage, null);
                     resultBuilder.AppendLine($"in Left Arm!");
                     break;
                 case int x when x <= 12:
-                    ApplyDamageToBodyPart(hitLocation.RightArm, damage, null);
+                    _combatService.ApplyDamageToBodyPart(hitLocation.RightArm, damage, null);
                     resultBuilder.AppendLine($"in Right Arm!");
                     break;
                 case int x when x <= 15:
-                    ApplyDamageToBodyPart(hitLocation.Stomach, damage, null);
+                    _combatService.ApplyDamageToBodyPart(hitLocation.Stomach, damage, null);
                     resultBuilder.AppendLine($"in Stomach!");
                     break;
                 case int x when x <= 18:
-                    ApplyDamageToBodyPart(hitLocation.Chest, damage, null);
+                    _combatService.ApplyDamageToBodyPart(hitLocation.Chest, damage, null);
                     resultBuilder.AppendLine($"in Chest!");
                     break;
                 default: //when x == 20
-                    ApplyDamageToBodyPart(hitLocation.Head, damage, null);
+                    _combatService.ApplyDamageToBodyPart(hitLocation.Head, damage, null);
                     resultBuilder.AppendLine($"in Head!");
                     break;
             }
@@ -531,15 +722,35 @@ public class CombatController : ControllerBase
 
 
     [HttpPost("Action/Unjam")]
-    public async Task<IActionResult> ActionUnjam(int baseChance)
+    public async Task<IActionResult> ActionUnjam(int baseChance, bool? secondaryModeActivated)
     {
-        if (characterCurrentTurn.EquippedWeapon is null)
+        if (characterCurrentTurn.MainHandEquipment is null)
         {
             return BadRequest("You don't have a weapon equipped");
         }
-        if (characterCurrentTurn.EquippedWeapon.WeaponIsJammed is false)
+
+        _combatService.CalculateHitChance(characterCurrentTurn, baseChance, light: 0, weather: 0);
+
+        switch (secondaryModeActivated)
         {
-            return BadRequest("Your weapon is not jammed.");
+            case true:
+
+                if (characterCurrentTurn.MainHandEquipment.SecondaryMode.WeaponIsJammed is false)
+                {
+                    return BadRequest("Your weapon's secondary firing mode is not jammed.");
+                }
+
+                break;
+
+            case false:
+            case null:
+
+                if (characterCurrentTurn.MainHandEquipment.WeaponIsJammed is false)
+                {
+                    return BadRequest("Your weapon is not jammed.");
+                }
+
+                break;
         }
 
         characterCurrentTurn.ActionsRemaining = 0;
@@ -548,249 +759,130 @@ public class CombatController : ControllerBase
 
         if (d20HitRoll == 1)
         {
-            RemoveWeaponJam();
-            UpdateTurn(initiativeOrder);
-            return Ok("With critical success, the weapon got unjammed and is now ready for use agian!");
+            _combatService.RemoveWeaponJam(characterCurrentTurn, secondaryModeActivated);
+            _combatService.UpdateTurn(initiativeOrder, characterCurrentTurn, currentRound, combatStatus);
+            return Ok("With critical success, the weapon is unjammed and now ready for use agian!");
         }
         if (isSuccessful || d20HitRoll != 20)
         {
-            characterCurrentTurn.EquippedWeapon.SuccessfulUnjamAttempts++;
-            if (characterCurrentTurn.EquippedWeapon.SuccessfulUnjamAttempts > 2)
+            characterCurrentTurn.MainHandEquipment.SuccessfulUnjamAttempts++;
+            if (characterCurrentTurn.MainHandEquipment.SuccessfulUnjamAttempts > 2)
             {
-                RemoveWeaponJam();
-                UpdateTurn(initiativeOrder);
+                _combatService.RemoveWeaponJam(characterCurrentTurn, secondaryModeActivated);
+                _combatService.UpdateTurn(initiativeOrder, characterCurrentTurn, currentRound, combatStatus); //bloat? UpdateTurn
                 return Ok("Weapon unjammed successfully.");
             }
-            UpdateTurn(initiativeOrder);
+            _combatService.UpdateTurn(initiativeOrder, characterCurrentTurn, currentRound, combatStatus);
             return Ok("You were successful, but need more time to unjam the weapon.");
         }
-        UpdateTurn(initiativeOrder);
+        _combatService.UpdateTurn(initiativeOrder, characterCurrentTurn, currentRound, combatStatus);
         return Ok("You were unsuccessful and have to attempt next turn.");
     }
 
-    #region Combat Methods
 
-    private IActionResult CheckForEmptyMagazine(Weapon weapon, bool secondaryModeActivated)
+    [HttpPatch("Enviroment/WARNINGThreeSecondsToAutoDestruct/TurnOn")] //NEEDS TEST
+    public async Task<IActionResult> EnviromentWARNINGThreeSecondsToAutoDestruct_ON()
     {
-        //Check for empty magazine-clip
-        if (weapon.SecondaryMode is not null)
+        foreach (var character in combatants)
         {
-            if (weapon.SecondaryMode.CurrentAmmo <= 0 && secondaryModeActivated is true)
+            switch (character.Stress)
             {
-                return Ok("Out of ammo! You need to reload your magazine.");
+                case Character.EnviromentStress.YourClothesAreOnFire:
+                case Character.EnviromentStress.YouAreMidairFallingTowardCertainDeath:
+                    break;
+
+                default:
+                    character.Stress = Character.EnviromentStress.WARNINGThreeSecondsToAutoDestruct;
+                    break;
+
             }
         }
-        if (weapon.CurrentAmmo <= 0)
-        {
-            return Ok("Out of ammo! You need to reload your magazine.");
-        }
 
-        return null; //Continue
+        return Ok("WARNING WARNING! (Enviroment Stress Applied, -3 modifier applied to all");
     }
-    private IActionResult AmmoHandler(Weapon weapon,
-                                            FiringMode firingMode,
-                                            RapidVolleyBulletsCount? rapidVolleyBulletsCount,
-                                            ref int baseChance, ref int shotsToCalculate,
-                                            bool secondaryModeActivated)
+
+    [HttpPatch("Enviroment/WARNINGThreeSecondsToAutoDestruct/TurnOff")] //NEEDS TEST
+    public async Task<IActionResult> EnviromentWARNINGThreeSecondsToAutoDestruct_OFF()
     {
-
-        switch (firingMode)
+        foreach (var character in combatants)
         {
-            case FiringMode.SingleRound:
-                weapon.CurrentAmmo--;
-                shotsToCalculate = 1;
-                break;
-            case FiringMode.Burst:
-                if (weapon.CurrentAmmo >= 3)
-                {
-                    weapon.CurrentAmmo = weapon.CurrentAmmo - 3;
-                    shotsToCalculate = 2;
-                }
-                else
-                {
-                    weapon.CurrentAmmo = 0;
-                    shotsToCalculate = 1;
-                }
-                break;
-            case FiringMode.FullAuto:
-                if (weapon.CurrentAmmo >= 10)
-                {
-                    weapon.CurrentAmmo = weapon.CurrentAmmo - 10;
-                    shotsToCalculate = 3;
-                }
-                else
-                {
-                    weapon.CurrentAmmo = 0;
-                    shotsToCalculate = 1;
-                }
-                break;
-            case FiringMode.RapidVolley:
-                switch (rapidVolleyBulletsCount)
-                {
-                    case (RapidVolleyBulletsCount?)(int)RapidVolleyBulletsCount.Two:
-                        weapon.CurrentAmmo = weapon.CurrentAmmo - 2;
-                        shotsToCalculate = 2;
-                        baseChance -= 4;
-                        break;
-                    case (RapidVolleyBulletsCount?)(int)RapidVolleyBulletsCount.Three:
-                        weapon.CurrentAmmo = weapon.CurrentAmmo - 3;
-                        shotsToCalculate = 3;
-                        baseChance -= 6;
-                        break;
-                    case (RapidVolleyBulletsCount?)(int)RapidVolleyBulletsCount.Four:
-                        weapon.CurrentAmmo = weapon.CurrentAmmo - 4;
-                        shotsToCalculate = 4;
-                        baseChance -= 8;
-                        break;
-                    case (RapidVolleyBulletsCount?)(int)RapidVolleyBulletsCount.Five:
-                        weapon.CurrentAmmo = weapon.CurrentAmmo - 5;
-                        shotsToCalculate = 5;
-                        baseChance -= 10;
-                        break;
-                    default:
-                        return BadRequest("Invalid number of bullets for rapid volley.");
-                }
-                break;
-            case FiringMode.AreaSpray:
-                if (weapon.CurrentAmmo >= 20)
-                {
-                    weapon.CurrentAmmo = weapon.CurrentAmmo - 20;
-                    shotsToCalculate = 1;
-                }
-                else
-                {
-                    weapon.CurrentAmmo = 0;
-                    shotsToCalculate = 1;
-                }
-                break;
-            default:
-                return BadRequest();
+            character.Stress = Character.EnviromentStress.None;
+            _combatService.ApplyStressToTarget(character, characterCurrentTurn);
         }
 
-        // Check if ammo went below 0
-        if (weapon.CurrentAmmo < 0)
-        {
-            weapon.CurrentAmmo = 0; // Reset ammo to 0
-        }
-
-        return Ok();
+        return Ok("Stress warning is normalized.");
     }
 
-    private void RemoveWeaponJam()
+    [HttpPost("EndCombat")]
+    public async Task<IActionResult> EndCombat()
     {
-        characterCurrentTurn.EquippedWeapon.WeaponIsJammed = false;
-        characterCurrentTurn.EquippedWeapon.SuccessfulUnjamAttempts = 0;
+        if (combatInProgress is false)
+        {
+            return BadRequest("No combat in progress.");
+        }
+
+        combatants.Clear();
+        initiativeOrder.Clear();
+        defeated.Clear();
+        characterCurrentTurn = null!;
+        combatStatus = "";
+        currentRound = 1;
+
+        return Ok("Combat has ended");
     }
+
+    [HttpPost("InputDamageManually")]
+    public async Task<IActionResult> InputDamageManually([Required][FromQuery] string target, [Required] int damage, string? bodypart)
+    {
+        if (combatInProgress is false)
+        {
+            return BadRequest("No combat in progress.");
+        }
+        Character targetCharacter = combatants.FirstOrDefault(x => x.Name == target);
+
+        if (targetCharacter is null)
+        {
+            return BadRequest("Invalid target.");
+        }
+
+        return null;
+    }
+    #region Combat Methods
+
+
     private int CalculateMeleeAttack(Character character, Weapon weapon)
     {
-        int damage = character.OffensiveBonus;
+        int damage = characterCurrentTurn.OffensiveBonus;
 
-        //if bayonet == true > +2 dmg
-
-        switch (weapon.Weight)
+        if (weapon.ChainBayonet is not null && weapon.ChainBayonet.Equipped is true)
         {
-            case decimal weight when weight < 5:
-                damage += Dice.Roll1D4();
-                break;
-            case decimal weight when weight >= 5 && weight <= 20:
-                damage += Dice.Roll1D4() + 1;
-                break;
-            case decimal weight when weight > 20:
-                damage += Dice.Roll1D6();
-                break;
-            default:
-                break;
+            damage += Dice.RollDamage(weapon.ChainBayonet.DamageMin, weapon.ChainBayonet.DamageMax, weapon.ChainBayonet.DamageAdded);
+        }
+        else
+        {
+            switch (weapon.Weight)
+            {
+                case decimal weight when weight < 5:
+                    damage += Dice.Roll1D4();
+                    break;
+                case decimal weight when weight >= 5 && weight <= 20:
+                    damage += Dice.Roll1D4() + 1;
+                    break;
+                case decimal weight when weight > 20:
+                    damage += Dice.Roll1D6();
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        if (weapon is null)
+        {
+            damage = Dice.RollDamage(1, 3, characterCurrentTurn.OffensiveBonus);
         }
 
         return damage;
 
-    }
-    private void InitializeTemporaryBodyPoints(Target target)
-    {
-        target.Head.TemporaryBodyPoints = target.Head.MaximumBodyPoints;
-        target.Chest.TemporaryBodyPoints = target.Chest.MaximumBodyPoints;
-        target.Stomach.TemporaryBodyPoints = target.Stomach.MaximumBodyPoints;
-        target.RightArm.TemporaryBodyPoints = target.RightArm.MaximumBodyPoints;
-        target.LeftArm.TemporaryBodyPoints = target.LeftArm.MaximumBodyPoints;
-        target.RightLeg.TemporaryBodyPoints = target.RightLeg.MaximumBodyPoints;
-        target.LeftLeg.TemporaryBodyPoints = target.LeftLeg.MaximumBodyPoints;
-    }
-    private async Task<List<(Character character, int combined)>> InitiativeRoll(List<Character> combatants)
-    {
-        if (combatants is null)
-        {
-            throw new ArgumentNullException(nameof(combatants), "Combatants list cannot be null.");
-        }
-
-        var initiativeResults = new List<(Character character, int combined)>();
-
-        foreach (var character in combatants)
-        {
-            int diceResult = Dice.Roll1D10();
-            int combined = character.InitiativeBonus + diceResult;
-            initiativeResults.Add((character, combined));
-        }
-
-        var initiativeOrder = initiativeResults
-                             .OrderByDescending(x => x.combined)
-                             .ThenByDescending(x => x.character.InitiativeBonus)
-                             .ThenBy(x => Dice.Roll1D10()) //Tie-breaker; WIP
-                             .ToList();
-
-
-        return initiativeOrder;
-    }
-    private string StringBuilderFormatInitiative(List<(Character character, int initiative)> sortedCharacters, int round, Character? currentCharacterTurn)
-    {
-        var stringBuilder = new StringBuilder();
-        stringBuilder.AppendLine($"Round {round}");
-
-        foreach (var (character, initiative) in sortedCharacters)
-        {
-            stringBuilder.AppendLine($"{character.Name.ToUpper()} | Initiative: {initiative}");
-            stringBuilder.AppendLine($"Actions: {character.ActionsRemaining}/{character.ActionsPerRound}");
-            stringBuilder.AppendLine();
-        }
-
-        if (currentCharacterTurn is not null)
-        {
-            stringBuilder.AppendLine("-------------------------------");
-            stringBuilder.AppendLine($"Current Turn: {currentCharacterTurn.Name.ToUpper()}");
-            stringBuilder.AppendLine("-------------------------------");
-        }
-
-        var formatString = stringBuilder.ToString().Trim(); // Trim to remove leading/trailing whitespaces
-
-        return formatString;
-    }
-    private bool IsFiringModeAllowed(Weapon weapon, FiringMode firingMode, bool secondaryMode)
-    {
-        var function = weapon.WeaponFunctionalityEnum;
-        if (secondaryMode is true)
-        {
-            function = weapon.SecondaryMode.WeaponFunctionalityEnum;
-        }
-
-        switch (function)
-        {
-            case Weapon.WeaponFunctionality.Manual:
-                return firingMode == FiringMode.SingleRound;
-
-            case Weapon.WeaponFunctionality.SemiAutomatic:
-                return firingMode == FiringMode.SingleRound ||
-                       firingMode == FiringMode.RapidVolley;
-
-            case Weapon.WeaponFunctionality.FullAutomatic:
-                return true; // All firing modes are allowed
-
-            case Weapon.WeaponFunctionality.SemiAutomaticWith3RoundBurst:
-                return firingMode == FiringMode.SingleRound ||
-                       firingMode == FiringMode.RapidVolley ||
-                       firingMode == FiringMode.Burst;
-
-            default:
-                return false;
-        }
     }
     private IActionResult ApplyAimingMode(AimType aim, Weapon weapon, ref Character characterCurrentTurn, decimal range, ref int baseChance)
     {
@@ -909,91 +1001,9 @@ public class CombatController : ControllerBase
             default:
                 return BadRequest("Invalid aiming mode!");
         }
-        return null;
+        return null!;
     }
-    private async Task<int> CalculateHitChance(int baseChance, Enviroment.Light light, Enviroment.Weather weather)
-    {
-
-        int lightModifier = (int)light;
-        int weatherModifier = (int)weather;
-
-        int modifiedHitChance = baseChance - lightModifier - weatherModifier;
-
-        return modifiedHitChance;
-    }
-    private void ApplyDamageToBodyPart(BodyPart bodyPart, int damage, AmmoType? ammoType)
-    {
-        int armorValue = bodyPart.ArmorValue;
-        int absorbedDamage = Math.Min(armorValue, Dice.Roll1D10());
-
-        if (ammoType is AmmoType.ArmorPenetration)
-        {
-            int doubledDamage = damage * 2;
-
-            if (absorbedDamage >= doubledDamage)
-            {
-                bodyPart.TemporaryBodyPoints -= (damage - absorbedDamage);
-            }
-            else
-            {
-                int remainingDamage = (int)Math.Ceiling((doubledDamage - absorbedDamage) * 0.5);
-                bodyPart.TemporaryBodyPoints -= remainingDamage;
-            }
-        }
-        else if (ammoType is AmmoType.Hardballs)
-        {
-            bodyPart.TemporaryBodyPoints -= (damage * 2 - absorbedDamage);
-        }
-        else
-        {
-            bodyPart.TemporaryBodyPoints -= (damage - absorbedDamage);
-        }
-    }
-    private void UpdateTurn(List<(Character character, int initiative)> initiativeOrder)
-    {
-        if (initiativeOrder.Count <= 0)
-        {
-            //InitiativeOrder is empty, do nothing
-            return;
-        }
-
-        // Check if the current character's actions are out
-        if (characterCurrentTurn.ActionsRemaining <= 0)
-        {
-            // Find the index of the current character in the initiative order
-            int currentIndex = initiativeOrder.FindIndex(entry => entry.character == characterCurrentTurn);
-
-            // Move to the next character in the initiative order
-            int nextIndex = (currentIndex + 1) % initiativeOrder.Count;
-            characterCurrentTurn = initiativeOrder[nextIndex].character;
-        }
-        else
-        {
-            // Current character still has actions, do nothing
-        }
-
-        combatStatus = StringBuilderFormatInitiative(initiativeOrder, CurrentRound, characterCurrentTurn);
-    }
-    private void CheckForDefeatedCombatants()
-    {
-        for (int i = combatants.Count - 1; i >= 0; i--)
-        {
-            var character = combatants[i];
-            bool isUnconciousOrDefeated =
-                    character.Target.Head.TemporaryBodyPoints <= 0 ||
-                    character.Target.Chest.TemporaryBodyPoints <= 0 ||
-                    character.Target.Stomach.TemporaryBodyPoints <= 0 ||
-                    character.Target.TemporaryBodyPoints <= 0;
-
-            if (isUnconciousOrDefeated)
-            {
-                defeated.Add(character);
-                combatants.RemoveAt(i);
-                initiativeOrder.RemoveAt(i);
-            }
-        }
-    }
-
+    //Not properly teste
     #endregion
 
 

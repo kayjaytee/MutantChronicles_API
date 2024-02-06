@@ -37,4 +37,10 @@ public class Dice
         }
         return random.Next(1, maxAreas + 1);
     }
+
+    public static bool RollBlockChance(double blockChance) //Roll less = TRUE. Roll more = FALSE. TRUE imples successful block, FALSE implies block failed.
+    {
+        int randomNumber = random.Next(1, 101);
+        return randomNumber <= blockChance * 100;
+    }
 }

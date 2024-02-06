@@ -1,15 +1,14 @@
-﻿using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Options;
 using MongoDB.Bson;
 using MongoDB.Driver;
-using MongoDB.Driver.Core.Configuration;
-using MutantChroniclesAPI.Model.WeaponModel;
 using MutantChroniclesAPI.Services.Data;
+using MutantChroniclesAPI.Model.WeaponModel;
+using MutantChroniclesAPI.Interface;
+using System.Collections;
 
 namespace MutantChroniclesAPI.Services;
 
-public class WeaponService
+public class WeaponService : IWeaponService
 {
 
     private readonly IMongoCollection<Weapon> _weaponsCollection;
@@ -29,6 +28,7 @@ public class WeaponService
         return await _weaponsCollection.Find(new BsonDocument())
                                        .Project<Weapon>(projection)
                                        .ToListAsync();
+
     }
 
 
@@ -45,7 +45,7 @@ public class WeaponService
         {
             return exactMatchWeapon;
         }
-        
+
         return null;
     }
 

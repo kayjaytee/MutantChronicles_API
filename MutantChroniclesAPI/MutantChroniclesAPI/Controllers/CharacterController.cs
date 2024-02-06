@@ -1,7 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using MutantChroniclesAPI.Model.CharacterModel;
 using MutantChroniclesAPI.Repository;
-using MutantChroniclesAPI.Services;
 
 namespace MutantChroniclesAPI.Controllers;
 
@@ -11,8 +10,6 @@ namespace MutantChroniclesAPI.Controllers;
 
 public class CharacterController : ControllerBase
 {
-
-    private readonly WeaponService _weaponService;
 
     [HttpPost]
     public async Task<IActionResult> CreateCharacter(string name,
@@ -123,6 +120,6 @@ public class CharacterController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> DisplayCharacter()
     {
-        return Ok(CharacterRepository.Characters.ToList());
+        return Ok(CharacterRepository.Characters.ToList()); //JSONtoTUPLEConverter
     }
 }

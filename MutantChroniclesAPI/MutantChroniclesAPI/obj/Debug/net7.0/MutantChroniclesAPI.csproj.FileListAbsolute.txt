@@ -1,9 +1,10 @@
-C:\Users\K-J\source\repos\API\MutantChroniclesAPI\MutantChroniclesAPI\bin\Debug\net7.0\MutantChroniclesAPI.dll
 C:\Users\K-J\source\repos\API\MutantChroniclesAPI\MutantChroniclesAPI\bin\Debug\net7.0\appsettings.Development.json
 C:\Users\K-J\source\repos\API\MutantChroniclesAPI\MutantChroniclesAPI\bin\Debug\net7.0\appsettings.json
 C:\Users\K-J\source\repos\API\MutantChroniclesAPI\MutantChroniclesAPI\bin\Debug\net7.0\MutantChroniclesAPI.exe
 C:\Users\K-J\source\repos\API\MutantChroniclesAPI\MutantChroniclesAPI\bin\Debug\net7.0\MutantChroniclesAPI.deps.json
 C:\Users\K-J\source\repos\API\MutantChroniclesAPI\MutantChroniclesAPI\bin\Debug\net7.0\MutantChroniclesAPI.runtimeconfig.json
+C:\Users\K-J\source\repos\API\MutantChroniclesAPI\MutantChroniclesAPI\bin\Debug\net7.0\MutantChroniclesAPI.dll
+C:\Users\K-J\source\repos\API\MutantChroniclesAPI\MutantChroniclesAPI\bin\Debug\net7.0\MutantChroniclesAPI.pdb
 C:\Users\K-J\source\repos\API\MutantChroniclesAPI\MutantChroniclesAPI\bin\Debug\net7.0\AWSSDK.Core.dll
 C:\Users\K-J\source\repos\API\MutantChroniclesAPI\MutantChroniclesAPI\bin\Debug\net7.0\AWSSDK.SecurityToken.dll
 C:\Users\K-J\source\repos\API\MutantChroniclesAPI\MutantChroniclesAPI\bin\Debug\net7.0\DnsClient.dll
@@ -43,5 +44,4 @@ C:\Users\K-J\source\repos\API\MutantChroniclesAPI\MutantChroniclesAPI\obj\Debug\
 C:\Users\K-J\source\repos\API\MutantChroniclesAPI\MutantChroniclesAPI\obj\Debug\net7.0\refint\MutantChroniclesAPI.dll
 C:\Users\K-J\source\repos\API\MutantChroniclesAPI\MutantChroniclesAPI\obj\Debug\net7.0\MutantChroniclesAPI.pdb
 C:\Users\K-J\source\repos\API\MutantChroniclesAPI\MutantChroniclesAPI\obj\Debug\net7.0\MutantChroniclesAPI.genruntimeconfig.cache
-C:\Users\K-J\source\repos\API\MutantChroniclesAPI\MutantChroniclesAPI\bin\Debug\net7.0\MutantChroniclesAPI.pdb
 C:\Users\K-J\source\repos\API\MutantChroniclesAPI\MutantChroniclesAPI\obj\Debug\net7.0\ref\MutantChroniclesAPI.dll

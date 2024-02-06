@@ -1,4 +1,4 @@
-﻿namespace MutantChroniclesAPI.Model;
+﻿namespace MutantChroniclesAPI.Model.EnviromentModel;
 
 public class Enviroment
 {

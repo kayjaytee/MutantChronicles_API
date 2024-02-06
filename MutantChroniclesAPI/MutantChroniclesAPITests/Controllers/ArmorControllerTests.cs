@@ -52,18 +52,17 @@ public class ArmorControllerTests
         string armorName = "TestArmor";
         int armorValue = 10;
         ArmorType armorType = (ArmorType)(int)ArmorType.Head;
+        ArmorMaterial armorMaterial = (ArmorMaterial)(int)ArmorMaterial.ExtraHeavyCombat;
 
         var testCharacter = new Character { Name = characterName };
         CharacterRepository.Characters.Add(testCharacter);
 
         // Act
-        var result = await controller.CreateArmor(armorName, armorValue, armorType, characterName);
+        var result = await controller.CreateArmor(armorName, armorValue, armorType, armorMaterial, characterName);
 
 
         // Assert
         Assert.IsInstanceOf<ObjectResult>(result);
-        var objectResult = (ObjectResult)result;
-
     }
 
 

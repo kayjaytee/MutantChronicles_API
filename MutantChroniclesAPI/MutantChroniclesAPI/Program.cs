@@ -1,15 +1,7 @@
-using MongoDB.Driver.Core.Configuration;
-using MutantChroniclesAPI.Model;
-using System.Text.Json;
-using MutantChroniclesAPI.Services.Data;
-using MutantChroniclesAPI.Services;
 using Microsoft.Extensions.Options;
-using MutantChroniclesAPI.Model.CharacterModel;
-using Microsoft.AspNetCore.Mvc;
-using System.ComponentModel;
-using MutantChroniclesAPI.Enums;
-using System.Text.Json.Serialization;
 using MutantChroniclesAPI.Converter;
+using MutantChroniclesAPI.Services;
+using MutantChroniclesAPI.Services.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,6 +10,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.Configure<MongoDBSettings>(builder.Configuration.GetSection("MongoDBSettings"));
 builder.Services.AddSingleton<IMongoDBSettings>(serviceProvider => serviceProvider.GetRequiredService<IOptions<MongoDBSettings>>().Value);
 builder.Services.AddScoped<WeaponService>();
+builder.Services.AddScoped<EnviromentService>();
 
 builder.Services.AddControllers();
 builder.Services.AddControllers().AddJsonOptions(options =>

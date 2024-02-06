@@ -17,29 +17,25 @@ public class WeaponController : ControllerBase
 {
     private readonly WeaponService _weaponService;
 
-    public WeaponController(WeaponService weaponService)
-    {
-        _weaponService = weaponService;
-    }
+    public WeaponController(WeaponService weaponService) => _weaponService = weaponService;
 
-    [HttpGet("get")]
+    [HttpGet("Get")]
     public async Task<List<Weapon>> GetAllWeapons() =>
       await _weaponService.GetAsync();
 
-    [HttpGet("search")]
+    [HttpGet("Search")]
     public async Task<IActionResult> SearchWeapons(string query)
     {
         var matchingWeapons = await _weaponService.SearchAsync(query);
         return Ok(matchingWeapons);
     }
 
-    [HttpPatch("equip/character")]
+    [HttpPatch("Equip/character")]
     public async Task<IActionResult> EquipWeapon([Required] string weaponName,
                                                  [Required] string characterName)
     {
-        Character character;
+        var character = CharacterRepository.Characters.FirstOrDefault(x => x.Name.Equals(characterName, StringComparison.OrdinalIgnoreCase));
 
-        character = CharacterRepository.Characters.FirstOrDefault(x => x.Name.Equals(characterName, StringComparison.OrdinalIgnoreCase));
         if (character is null)
         {
             var suggestedCharacters = await SearchCharactersAsync(characterName);
@@ -69,6 +65,10 @@ public class WeaponController : ControllerBase
             }
         }
         weapon.CurrentAmmo = weapon.MagazineCapacity;
+        if (weapon.SecondaryMode is not null && weapon.SecondaryMode.Equipped is true)
+        {
+            weapon.SecondaryMode.CurrentAmmo = weapon.SecondaryMode.MagazineCapacity;
+        }
         weapon.AmmoType = MC_Weapon_Calculator.Model.Ammo.AmmoType.Standard; //WIP
         UpdateCharacter(character, weapon);
         return Ok($"Character '{characterName}': is now equipped with a '{weapon.Description} <<{weapon.Name}>>.'");
@@ -77,7 +77,7 @@ public class WeaponController : ControllerBase
 
     private void UpdateCharacter(Character character, Weapon weapon)
     {
-        character.EquipWeapon(weapon);
+        character.EquipWeaponInMainHand(weapon);
         character.CalculateWeight();
         character.CalculateWeightPenalty();
         character.CalculateActionsPerRound();

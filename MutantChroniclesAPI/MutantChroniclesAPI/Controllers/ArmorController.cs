@@ -15,14 +15,13 @@ public class ArmorController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> CreateArmor(string name,
                                                  [Required][Range(1, int.MaxValue, ErrorMessage = "The armor value must be greater than or equal to 1.")] int armorValue,
-                                                 [Required][FromQuery] ArmorType option,
+                                                 [Required][FromQuery] ArmorType type,
+                                                 [Required][FromQuery] ArmorMaterial material,
                                                  string characterName)
     {
-        Character character;
         Armor armor;
-        double blockchance = 0.00;
 
-        character = CharacterRepository.Characters.FirstOrDefault(x => string.Equals(x.Name, characterName, StringComparison.OrdinalIgnoreCase));
+        var character = CharacterRepository.Characters.FirstOrDefault(x => string.Equals(x.Name, characterName, StringComparison.OrdinalIgnoreCase));
         if (character is null)
         {
             var suggestedCharacters = await SearchCharactersAsync(characterName);
@@ -36,44 +35,48 @@ public class ArmorController : ControllerBase
                 return NotFound("Character name could not be found.");
             }
         }
-        switch (option)
+
+        character.Target = new Target(character);
+
+        switch (type)
         {
             case ArmorType.Head:
-                armor = new Armor(name, armorValue, Armor.ArmorType.Head);
+                armor = new Armor(name, armorValue, Armor.ArmorType.Head, (Armor.ArmorMaterial)material);
                 break;
             case ArmorType.Harness:
-                armor = new Armor(name, armorValue, Armor.ArmorType.Harness);
+                armor = new Armor(name, armorValue, Armor.ArmorType.Harness, (Armor.ArmorMaterial)material);
                 break;
             case ArmorType.Jacket:
-                armor = new Armor(name, armorValue, Armor.ArmorType.Jacket);
+                armor = new Armor(name, armorValue, Armor.ArmorType.Jacket, (Armor.ArmorMaterial)material);
                 break;
             case ArmorType.Trenchcoat:
-                blockchance = 0.50;
-                armor = new Armor(name, armorValue, Armor.ArmorType.Trenchcoat);
+                armor = new Armor(name, armorValue, Armor.ArmorType.Trenchcoat, (Armor.ArmorMaterial)material);
                 break;
             case ArmorType.Bodysuit:
-                armor = new Armor(name, armorValue, Armor.ArmorType.Bodysuit);
+                armor = new Armor(name, armorValue, Armor.ArmorType.Bodysuit, (Armor.ArmorMaterial)material);
                 break;
             case ArmorType.Arms:
-                armor = new Armor(name, armorValue, Armor.ArmorType.Arms);
+                armor = new Armor(name, armorValue, Armor.ArmorType.Arms, (Armor.ArmorMaterial)material);
                 break;
             case ArmorType.Gloves:
-                blockchance = 0.25;
-                armor = new Armor(name, armorValue, Armor.ArmorType.Gloves);
+                armor = new Armor(name, armorValue, Armor.ArmorType.Gloves, (Armor.ArmorMaterial)material);
                 break;
             case ArmorType.Legs:
-                armor = new Armor(name, armorValue, Armor.ArmorType.Legs);
+                armor = new Armor(name, armorValue, Armor.ArmorType.Legs, (Armor.ArmorMaterial)material);
                 break;
             case ArmorType.Knee:
-                blockchance = 0.25;
-                armor = new Armor(name, armorValue, Armor.ArmorType.Knee);
+                armor = new Armor(name, armorValue, Armor.ArmorType.Knee, (Armor.ArmorMaterial)material);
+                break;
+            case ArmorType.Shoulders:
+                armor = new Armor(name, armorValue, Armor.ArmorType.Shoulders, (Armor.ArmorMaterial)material);
                 break;
             default:
                 return Problem();
         }
         character.Target = new Target(character);
         character.Armor.Add(armor);
-        character.UpdateArmorValueForBodyParts();
+        character.UpdateArmorValuesForBodyParts();
+
         return Ok(character.Name + "\nArmor Details:" + armor.ToJson());
     }
 

@@ -1,7 +1,6 @@
 ﻿using System.ComponentModel;
-using System.Text.Json.Serialization;
 using System.Text.Json;
-using MutantChroniclesAPI.Enums;
+using System.Text.Json.Serialization;
 
 namespace MutantChroniclesAPI.Converter;
 
@@ -10,7 +9,6 @@ namespace MutantChroniclesAPI.Converter;
 /// The Purpose of the StringEnumConverterWithDescription is to improve the readability for Enums for different query options.
 /// Instead of listing options as 1,2,3,4,5,6 etc, the options have instead proper descriptions that determine what the uses are.
 /// </summary>
-/// 
 
 public class StringEnumConverterWithDescription : JsonConverter<Enum>
 {

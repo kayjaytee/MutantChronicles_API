@@ -3,16 +3,11 @@ using Microsoft.Extensions.Options;
 using Mongo2Go;
 using MongoDB.Driver;
 using MutantChroniclesAPI.Controllers;
-using MutantChroniclesAPI.Model;
 using MutantChroniclesAPI.Model.CharacterModel;
 using MutantChroniclesAPI.Model.WeaponModel;
 using MutantChroniclesAPI.Repository;
-using MutantChroniclesAPI.Services;
 using MutantChroniclesAPI.Services.Data;
-using MutantChroniclesAPI.Tests;
-using NSubstitute;
-using NSubstitute.ClearExtensions;
-using System.Reflection;
+using MutantChroniclesAPI.Services;
 
 namespace MutantChroniclesAPI.Tests.Controllers;
 
@@ -127,7 +122,7 @@ public class WeaponControllerTests
     public async Task EquipWeapon_CharacterFoundAndWeaponFound_EquipsWeaponAndReturnsOk()
     {
         // Arrange
-    
+
         string characterName = "TestCharacter";
         Character testCharacter = new Character { Name = characterName };
 
@@ -142,19 +137,22 @@ public class WeaponControllerTests
 
         // Assert
         Assert.IsInstanceOf<OkObjectResult>(result);
-        Assert.AreEqual(testWeapon.Name, testCharacter.EquippedWeapon.Name);
+        Assert.AreEqual(testWeapon.Name, testCharacter.MainHandEquipment.Name);
     }
 
     [Test]
     public void UpdateCharacter_EquipsWeapon_CalculatesStats()
     {
         // Arrange
-        Character testCharacter = new Character { Strength = 15,
-                                                  Coordination = 15,
-                                                  Intelligence = 15,
-                                                  MentalStrength = 15 };
+        var testCharacter = new Character
+        {
+            Strength = 15,
+            Coordination = 15,
+            Intelligence = 15,
+            MentalStrength = 15
+        };
 
-        Weapon testWeapon = new Weapon { Weight = 2.5M };
+        var testWeapon = new Weapon { Weight = 2.5M };
 
         // Act
         TestUtility.InvokePrivateMethod(weaponController, "UpdateCharacter", testCharacter, testWeapon);
@@ -182,10 +180,10 @@ public class WeaponControllerTests
     }
 
     [Test]
-    public async Task SearchCharactersAsync_WhenCharacterNotFound_ShouldReturnSimilarMatches() //Sometimes throws fail, possibly due to error with TearDown()
-    {
-        // Arrange
-        string query = "joh";
+    public async Task SearchCharactersAsync_WhenCharacterNotFound_ShouldReturnSimilarMatches() //This test has a bug associated with CharacterRepository,
+    {                                                                                          // if there are Character.Name(s) similar from other tests it might interfere and cause the test to glitch and send fail.
+            // Arrange
+            string query = "joh";
         var characters = new List<Character>
         {
             new Character { Name = "Johnny Katana" },

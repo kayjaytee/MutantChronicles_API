@@ -17,18 +17,18 @@ public class Target
 
     private void InitializeBodyParts()
     {
-        Head = new BodyPart(0, 0, 0, 0);
-        Chest = new BodyPart(0, 0, 0, 0);
-        Stomach = new BodyPart(0, 0, 0, 0);
-        RightArm = new BodyPart(0, 0, 0, 0);
-        LeftArm = new BodyPart(0, 0, 0, 0);
-        RightLeg = new BodyPart(0, 0, 0, 0);
-        LeftLeg = new BodyPart(0, 0, 0, 0);
+        Head = new BodyPart(0, 0, new List<ArmorValues>());
+        Chest = new BodyPart(0, 0, new List<ArmorValues>());
+        Stomach = new BodyPart(0, 0, new List<ArmorValues>());
+        RightArm = new BodyPart(0, 0, new List<ArmorValues>());
+        LeftArm = new BodyPart(0, 0, new List<ArmorValues>());
+        RightLeg = new BodyPart(0, 0, new List<ArmorValues>());
+        LeftLeg = new BodyPart(0, 0, new List<ArmorValues>());
     }
 
     private int CalculateMaximumBodyPoints()
     {
-      
+
         int combinedstats = character.Physique + character.MentalStrength;
 
         switch (combinedstats)
@@ -115,24 +115,37 @@ public class Target
     {
         public int TemporaryBodyPoints { get; set; }
         public int MaximumBodyPoints { get; set; }
-        public int ArmorValue { get; set; }
-        public double BlockChance { get; set; } //WIP
 
-        public BodyPart(int temporaryBodyPoints, int maximumBodyPoints, int armorValue, double blockChance)
+        public List<ArmorValues> ArmorValues { get; set; } //Inherits Absorbation from armor and applies relevant blockChance
+
+        public BodyPart(int temporaryBodyPoints, int maximumBodyPoints, List<ArmorValues> armorValues)
         {
             TemporaryBodyPoints = temporaryBodyPoints;
             MaximumBodyPoints = maximumBodyPoints;
-            ArmorValue = armorValue;
-            BlockChance = blockChance;
+            ArmorValues = armorValues;
         }
+
+        #region old solution with tuples
+        //[JsonConverter(typeof(TupleToJsonArrayConverter))]
+        //public List<(int Absorb, double BlockChance)> ArmorValues { get; set; }
+
+        //public BodyPart(int temporaryBodyPoints, int maximumBodyPoints, List<(int Absorb, double BlockChance)> armorValues)
+        //{
+        //    TemporaryBodyPoints = temporaryBodyPoints;
+        //    MaximumBodyPoints = maximumBodyPoints;
+        //    ArmorValues = armorValues;
+        //}
+        #endregion
+
     }
 
-    public BodyPart Head { get; set; }
-    public BodyPart Chest { get; set; }
-    public BodyPart Stomach { get; set; }
-    public BodyPart RightArm { get; set; }
-    public BodyPart LeftArm { get; set; }
-    public BodyPart RightLeg { get; set; }
-    public BodyPart LeftLeg { get; set; }
+    public BodyPart Head { get; private set; }
+    public BodyPart Chest { get; private set; }
+    public BodyPart Stomach { get; private set; }
+    public BodyPart RightArm { get; private set; }
+    public BodyPart LeftArm { get; private set; }
+    public BodyPart RightLeg { get; private set; }
+    public BodyPart LeftLeg { get; private set; }
+
 
 }

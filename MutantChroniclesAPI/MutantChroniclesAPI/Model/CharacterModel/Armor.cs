@@ -1,23 +1,26 @@
-﻿using MutantChroniclesAPI.Converter;
+﻿using MongoDB.Bson;
+using MutantChroniclesAPI.Converter;
 using System.ComponentModel;
 using System.Text.Json.Serialization;
 
 namespace MutantChroniclesAPI.Model.CharacterModel;
-
 public class Armor
 {
-    public string Name { get; set; }
-    public int ArmorValue { get; set; }
-    
-    [JsonConverter(typeof(StringEnumConverterWithDescription))]
-    public ArmorType Type { get; set; }
+    public string Name { get; private set; }
+    public int Absorb { get; private set; }
 
-    public Armor(string name, int armorValue, ArmorType type)
+    [JsonConverter(typeof(StringEnumConverterWithDescription))]
+    public ArmorType Type { get; private set; }
+
+    [JsonConverter(typeof(StringEnumConverterWithDescription))]
+    public ArmorMaterial Material { get; private set; }
+
+    public Armor(string name, int absorb, ArmorType type, ArmorMaterial material)
     {
         Name = name;
-        ArmorValue = armorValue;
+        Absorb = absorb;
         Type = type;
-        ApplyArmorValueToBodyPart();
+        Material = material;
     }
 
     [JsonConverter(typeof(StringEnumConverterWithDescription))]
@@ -48,69 +51,56 @@ public class Armor
         Legs = 8,
 
         [Description("Knee")]
-        Knee = 9
+        Knee = 9,
+
+        [Description("Shoulders")]
+        Shoulders = 10
     }
 
-    public int Head { get; private set; }
-    public int Chest { get; private set; }
-    public int Stomach { get; private set; }
-    public int RightArm { get; private set; }
-    public int LeftArm { get; private set; }
-    public int RightLeg { get; private set; }
-    public int LeftLeg { get; private set; }
-
-    private void ApplyArmorValueToBodyPart()
+    [JsonConverter(typeof(StringEnumConverterWithDescription))]
+    public enum ArmorMaterial
     {
-        switch (Type)
-        {
-            case ArmorType.Head:
-                Head = ArmorValue;
-                break;
-            case ArmorType.Harness:
-                Chest = ArmorValue;
-                Stomach = ArmorValue;
-                break;
-            case ArmorType.Jacket:
-                Chest = ArmorValue;
-                Stomach = ArmorValue;
-                RightArm = ArmorValue;
-                LeftArm = ArmorValue;
-                break;
-            case ArmorType.Trenchcoat: //WIP
-                Chest = ArmorValue;
-                Stomach = ArmorValue;
-                RightArm = ArmorValue;
-                LeftArm = ArmorValue;
-                RightLeg = ArmorValue;
-                LeftLeg = ArmorValue;
-                break;
-            case ArmorType.Bodysuit:
-                Chest = ArmorValue;
-                Stomach = ArmorValue;
-                RightArm = ArmorValue;
-                LeftArm = ArmorValue;
-                RightLeg = ArmorValue;
-                LeftLeg = ArmorValue;
-                break;
-            case ArmorType.Arms:
-                RightArm = ArmorValue;
-                LeftArm = ArmorValue;
-                break;
-            case ArmorType.Gloves: //WIP
-                RightArm = ArmorValue;
-                LeftArm = ArmorValue;
-                break;
-            case ArmorType.Legs:
-                RightLeg = ArmorValue;
-                LeftLeg = ArmorValue;
-                break;
-            case ArmorType.Knee: //WIP
-                RightLeg = ArmorValue;
-                LeftLeg = ArmorValue;
-                break;
-            default:
-                break;
-        }
+        [Description("Cloth")]
+        Cloth = 1,
+
+        [Description("Plastic")]
+        Plastic = 2,
+
+        [Description("Ballistic")]
+        Ballistic = 3,
+
+        [Description("Bulletproof")]
+        BulletProof = 4,
+
+        [Description("LightCombat")]
+        LightCombat = 5,
+
+        [Description("HeavyCombat")]
+        HeavyCombat = 6,
+
+        [Description("ExtraHeavyCombat")]
+        ExtraHeavyCombat = 7,
+    }
+
+}
+
+/// <summary>
+/// ArmorValues are applied to body parts; their values are copied from a characters existing armor and adds a block chance on top of it.
+/// </summary>
+public class ArmorValues //better test coverage?
+{
+    public int Absorb { get; private set; }
+    public double BlockChance { get; private set; }
+    public bool MeleeProtection { get; private set; }
+    public bool RangeProtection { get; private set; }
+    public bool FireProof { get; private set; }
+    public ArmorValues(int absorb, double blockChance, bool meleeProtection, bool rangeProtection, bool fireProof)
+    {
+        Absorb = absorb;
+        BlockChance = blockChance;
+        MeleeProtection = meleeProtection;
+        RangeProtection = rangeProtection;
+        FireProof = fireProof;
     }
 }
 

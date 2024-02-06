@@ -1,7 +1,6 @@
-﻿using MutantChroniclesAPI.Model.CharacterModel;
+﻿using MongoDB.Driver.Linq;
+using MutantChroniclesAPI.Model.CharacterModel;
 using MutantChroniclesAPI.Model.WeaponModel;
-using System.Drawing;
-using System.Runtime.ConstrainedExecution;
 using System.Text.Json;
 
 namespace MutantChroniclesAPI.Tests.Model.CharacterModel;
@@ -18,9 +17,9 @@ public class CharacterTests
     }
 
     [Test]
-    [TestCase(11,11, 1)]
-    [TestCase(22,22, 3)]
-    [TestCase(3,6, -1)]
+    [TestCase(11, 11, 1)]
+    [TestCase(22, 22, 3)]
+    [TestCase(3, 6, -1)]
     public void CalculateOffensiveBonus_STR_and_PHY_WithinRange_ReturnsCorrectValue(int STR, int PHY, int expected)
     {
         // Arrange
@@ -32,7 +31,7 @@ public class CharacterTests
 
         // Assert
         Assert.AreEqual(expected, character.OffensiveBonus);
-        Console.WriteLine($"STR: {STR}, PHY: {PHY}, Combined Value: {STR+PHY}, Expected: {expected}, Result: {character.OffensiveBonus}");
+        Console.WriteLine($"STR: {STR}, PHY: {PHY}, Combined Value: {STR + PHY}, Expected: {expected}, Result: {character.OffensiveBonus}");
 
     }
 
@@ -51,7 +50,7 @@ public class CharacterTests
 
         // Assert
         Assert.AreEqual(expected, character.ActionsPerRound);
-        Console.WriteLine($"COR: {COR}, MST: {MST}, Combined Value: {COR+MST}, Expected: {expected}, Result: {character.ActionsPerRound}");
+        Console.WriteLine($"COR: {COR}, MST: {MST}, Combined Value: {COR + MST}, Expected: {expected}, Result: {character.ActionsPerRound}");
     }
 
     [Test]
@@ -91,9 +90,9 @@ public class CharacterTests
     }
 
     [Test]
-    [TestCase(11,11,3)]
-    [TestCase(11,11,3)]
-    [TestCase(11,11,3)]
+    [TestCase(11, 11, 3)]
+    [TestCase(11, 11, 3)]
+    [TestCase(11, 11, 3)]
     public void CalculateInitiativeBonus_COR_and_PER_WithinRange_ReturnsCorrectValue(int COR, int PER, int expected)
     {
         // Arrange
@@ -107,11 +106,11 @@ public class CharacterTests
         Assert.AreEqual(expected, character.InitiativeBonus);
         Console.WriteLine($"COR: {COR}, PER: {PER}, Combined Value: {COR + PER}, Expected: {expected}, Result: {character.InitiativeBonus}");
     }
- 
+
     [Test]
-    [TestCase(11, 11,  3,225)]
-    [TestCase(11, 9,  3,175)]
-    [TestCase(11, 11,  3,225)]
+    [TestCase(11, 11, 3, 225)]
+    [TestCase(11, 9, 3, 175)]
+    [TestCase(11, 11, 3, 225)]
     public void CalculateMovementAllowance_PHY_and_COR_WithinRange_ReturnsCorrectValueAsTuple(int PHY, int COR, int squares, int mpm)
     {
         // Arrange
@@ -152,7 +151,7 @@ public class CharacterTests
         var weapon = new Weapon { Weight = 2.5M };
 
         // Act
-        character.EquipWeapon(weapon);
+        character.EquipWeaponInMainHand(weapon);
         character.CalculateWeight();
 
         // Assert
@@ -180,34 +179,40 @@ public class CharacterTests
         Console.WriteLine($"Actual Penalty: {actualPenalty}");
     }
 
-
     [Test]
-    public void UpdateArmorValueForBodyParts_AddsDifferentArmorTypes_UpdatesArmorValueCorrectly_BodyParts()
+    public void UpdateArmorValuesForBodyParts_Armor_Added_To_List__Serialized_ArmorValues_Added_To_BodyPart()
     {
         // Arrange
         var character = new Character();
-   
+
 
         //Arrange: Add different armor sets to the character
-        character.Armor.Add(new Armor("Cap", 1, Armor.ArmorType.Head));
-        character.Armor.Add(new Armor("T-Shirt", 1, Armor.ArmorType.Harness));
-        character.Armor.Add(new Armor("Jeans Jacket", 3, Armor.ArmorType.Jacket));
-        character.Armor.Add(new Armor("Raincoat", 2, Armor.ArmorType.Trenchcoat));
-        character.Armor.Add(new Armor("Gloves", 1, Armor.ArmorType.Gloves));
-        character.Armor.Add(new Armor("Jeans", 4, Armor.ArmorType.Legs));
+        character.Armor.Add(new Armor("Cap", 1, Armor.ArmorType.Head, Armor.ArmorMaterial.Cloth));
+        character.Armor.Add(new Armor("T-Shirt", 1, Armor.ArmorType.Harness, Armor.ArmorMaterial.Cloth));
+        character.Armor.Add(new Armor("Jeans Jacket", 3, Armor.ArmorType.Jacket, Armor.ArmorMaterial.Ballistic));
+        character.Armor.Add(new Armor("Raincoat", 2, Armor.ArmorType.Trenchcoat, Armor.ArmorMaterial.Plastic));
+        character.Armor.Add(new Armor("Gloves", 1, Armor.ArmorType.Gloves, Armor.ArmorMaterial.Cloth));
+        character.Armor.Add(new Armor("Jeans", 4, Armor.ArmorType.Legs, Armor.ArmorMaterial.Ballistic));
 
         // Act
-        character.UpdateArmorValueForBodyParts();
+        character.UpdateArmorValuesForBodyParts();
 
         // Assert
-        // Check if the armor values are updated correctly for each body part
-        Assert.AreEqual(1, character.Target.Head.ArmorValue);
-        Assert.AreEqual(6, character.Target.Chest.ArmorValue);
-        Assert.AreEqual(6, character.Target.Stomach.ArmorValue);
-        Assert.AreEqual(6, character.Target.RightArm.ArmorValue);
-        Assert.AreEqual(6, character.Target.LeftArm.ArmorValue);
-        Assert.AreEqual(6, character.Target.RightLeg.ArmorValue);
-        Assert.AreEqual(6, character.Target.LeftLeg.ArmorValue);
+        Assert.NotNull(character.Target.Head.ArmorValues);
+        Assert.NotNull(character.Target.Chest.ArmorValues);
+        Assert.NotNull(character.Target.Stomach.ArmorValues);
+        Assert.NotNull(character.Target.RightArm.ArmorValues);
+        Assert.NotNull(character.Target.LeftArm.ArmorValues);
+        Assert.NotNull(character.Target.RightLeg.ArmorValues);
+        Assert.NotNull(character.Target.LeftLeg.ArmorValues);
+
+        Assert.AreEqual(1, character.Target.Head.ArmorValues.Sum(x => x.Absorb));
+        Assert.AreEqual(6, character.Target.Chest.ArmorValues.Sum(x => x.Absorb));
+        Assert.AreEqual(6, character.Target.Stomach.ArmorValues.Sum(x => x.Absorb));
+        Assert.AreEqual(6, character.Target.RightArm.ArmorValues.Sum(x => x.Absorb));
+        Assert.AreEqual(6, character.Target.LeftArm.ArmorValues.Sum(x => x.Absorb));
+        Assert.AreEqual(6, character.Target.RightLeg.ArmorValues.Sum(x => x.Absorb));
+        Assert.AreEqual(6, character.Target.LeftLeg.ArmorValues.Sum(x => x.Absorb));
     }
 
     [Test]
@@ -218,9 +223,9 @@ public class CharacterTests
         var weapon = new Weapon { Name = "Test Weapon" };
 
         // Act
-        character.EquipWeapon(weapon);
+        character.EquipWeaponInMainHand(weapon);
 
         // Assert
-        Assert.AreEqual(weapon, character.EquippedWeapon);
+        Assert.AreEqual(weapon, character.MainHandEquipment);
     }
 }
